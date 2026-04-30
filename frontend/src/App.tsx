@@ -75,6 +75,7 @@ export function App() {
   const [activeFile, setActiveFile] = useState<WorkspaceFile | null>(null);
   const [editorText, setEditorText] = useState("");
   const [editorDirty, setEditorDirty] = useState(false);
+  const [runTimeoutSeconds, setRunTimeoutSeconds] = useState(120);
   const [title, setTitle] = useState("New modeling workflow");
   const [preset, setPreset] = useState("cumcm");
   const [problemText, setProblemText] = useState("");
@@ -96,6 +97,14 @@ export function App() {
   );
   const groupedWorkspaceFiles = useMemo(() => groupWorkspaceFiles(workspaceFiles), [workspaceFiles]);
   const latexLogSummary = useMemo(() => summarizeLatexLog(compileLog), [compileLog]);
+  const generatedOutputs = useMemo(
+    () =>
+      workspaceFiles
+        .filter((file) => ["figures", "tables"].includes(file.category) || file.suffix === ".pdf")
+        .sort((left, right) => right.modified_at - left.modified_at)
+        .slice(0, 12),
+    [workspaceFiles]
+  );
 
   async function refresh() {
     const list = await apiGet<Workflow[]>("/api/workflows");
@@ -332,10 +341,15 @@ export function App() {
     }
     const result = await apiPost<CodeRunResult>(
       `/api/workflows/${selected.id}/files/run?path=${encodeURIComponent(activeFile.path)}`,
-      { timeout_seconds: 120 }
+      { timeout_seconds: runTimeoutSeconds }
     );
     setRunLog(formatRunResult(activeFile.path, result));
     await refreshDetails(selected.id);
+  }
+
+  async function explainRunResult() {
+    if (!runLog) return;
+    await sendAgentMessage(`请解释这个 Python 运行结果，并告诉我该优先修什么：\n\n${runLog.slice(-6000)}`);
   }
 
   async function sendAgentMessage(message = agentInput) {
@@ -427,6 +441,11 @@ export function App() {
   function insertLatexTemplate(kind: "structure" | "figure" | "table") {
     const block = latexTemplates[kind];
     setEditorText((content) => insertBeforeEndDocument(content, block));
+    setEditorDirty(true);
+  }
+
+  function insertPythonScaffold() {
+    setEditorText((content) => `${content.trimEnd()}\n\n${pythonScaffold.trim()}\n`);
     setEditorDirty(true);
   }
 
@@ -752,6 +771,30 @@ export function App() {
                 </div>
               ) : activeFile?.suffix === ".py" ? (
                 <div className="code-workbench">
+                  <div className="code-toolbar">
+                    <button className="small" onClick={runActivePython}>
+                      Run
+                    </button>
+                    <label>
+                      Timeout
+                      <input
+                        type="number"
+                        min={1}
+                        max={300}
+                        value={runTimeoutSeconds}
+                        onChange={(event) => setRunTimeoutSeconds(Math.max(1, Math.min(300, Number(event.target.value) || 1)))}
+                      />
+                    </label>
+                    <button className="small" onClick={insertPythonScaffold}>
+                      Main Scaffold
+                    </button>
+                    <button className="small" onClick={explainRunResult} disabled={!runLog}>
+                      Explain Run
+                    </button>
+                    <button className="small" onClick={openLatestLog} disabled={!workspaceFiles.some((file) => file.suffix === ".log")}>
+                      Latest Log
+                    </button>
+                  </div>
                   <textarea
                     className="editor code-editor"
                     value={editorText}
@@ -761,7 +804,22 @@ export function App() {
                       setEditorDirty(true);
                     }}
                   />
-                  <pre className="run-pane">{runLog || "Run this Python file to see stdout and stderr here."}</pre>
+                  <div className="run-column">
+                    <pre className="run-pane">{runLog || "Run this Python file to see stdout and stderr here."}</pre>
+                    <div className="output-list">
+                      <h4>Generated Outputs</h4>
+                      {generatedOutputs.length === 0 ? (
+                        <p className="muted">No figures or tables yet.</p>
+                      ) : (
+                        generatedOutputs.map((file) => (
+                          <button key={file.path} onClick={() => openWorkspaceFile(file)}>
+                            <strong>{file.name}</strong>
+                            <span>{file.path}</span>
+                          </button>
+                        ))
+                      )}
+                    </div>
+                  </div>
                 </div>
               ) : activeFile ? (
                 <textarea
@@ -963,6 +1021,25 @@ const latexTemplates = {
 \end{table}
 `
 };
+
+const pythonScaffold = `
+def main():
+    """Run the modeling experiment from the workspace root."""
+    from pathlib import Path
+
+    root = Path(__file__).resolve().parents[1]
+    figures = root / "figures"
+    tables = root / "tables"
+    figures.mkdir(exist_ok=True)
+    tables.mkdir(exist_ok=True)
+
+    # TODO: load data, run model, save figures and tables.
+    print("Experiment finished.")
+
+
+if __name__ == "__main__":
+    main()
+`;
 
 function insertBeforeEndDocument(content: string, block: string): string {
   const marker = "\\end{document}";

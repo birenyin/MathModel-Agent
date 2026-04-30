@@ -43,6 +43,7 @@ Current implemented actions:
 - insert contest-paper sections, figure blocks, and table blocks in the LaTeX editor
 - summarize LaTeX compile logs and ask the Agent to explain them
 - run Python files from the workspace and save run logs as artifacts
+- tune Python run timeout, insert a main scaffold, inspect generated figures/tables, and ask Agent to explain run output
 - test model-provider settings from the UI
 - chat with a right-side workflow-aware Agent dock
 - trigger suggested Agent actions such as running Python, compiling LaTeX, and opening PDFs

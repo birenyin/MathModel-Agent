@@ -61,6 +61,7 @@ Supported presets:
 - The LaTeX workbench provides paper-section, figure, and table insertion helpers.
 - Compile logs are summarized and can be sent to Agent for explanation.
 - Workspace Python files can be run from the editor, with stdout/stderr captured.
+- The code workbench supports run timeout, main scaffolding, generated-output discovery, and Agent run-output diagnosis.
 - Model-provider settings can be tested before starting long workflows.
 - A right-side Agent dock can answer questions using current workflow, files, artifacts, uploads, events, and active file context.
 - The Agent can suggest local workbench actions such as running Python, compiling LaTeX, opening PDFs, and reviewing next steps.

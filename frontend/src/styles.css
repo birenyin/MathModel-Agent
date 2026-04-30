@@ -592,12 +592,53 @@ button.small {
   gap: 12px;
 }
 
+.code-toolbar {
+  grid-column: 1 / -1;
+  display: flex;
+  flex-wrap: wrap;
+  align-items: end;
+  gap: 8px;
+}
+
+.code-toolbar label {
+  width: 110px;
+  margin: 0;
+}
+
 .code-editor {
   min-height: 560px;
 }
 
 .run-pane {
-  min-height: 560px;
+  min-height: 360px;
+}
+
+.run-column {
+  display: grid;
+  gap: 12px;
+}
+
+.output-list {
+  display: grid;
+  gap: 6px;
+}
+
+.output-list h4 {
+  margin: 0;
+  font-size: 12px;
+  text-transform: uppercase;
+  color: #445049;
+}
+
+.output-list button {
+  display: grid;
+  gap: 3px;
+  text-align: left;
+}
+
+.output-list span {
+  color: #627067;
+  word-break: break-word;
 }
 
 .error {
