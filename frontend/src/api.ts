@@ -90,3 +90,10 @@ export type TextPreview = {
   filename?: string;
   text: string;
 };
+
+export type Skill = {
+  id: string;
+  title: string;
+  description: string;
+  path: string;
+};

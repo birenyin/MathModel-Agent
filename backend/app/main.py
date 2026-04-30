@@ -11,6 +11,7 @@ from .config import APP_NAME, APP_VERSION, WORKSPACES_DIR, ensure_runtime_dirs
 from .models import SettingsUpdate, StepApproval, WorkflowCreate
 from .services.artifacts import safe_workspace_name
 from .services.file_extractors import extract_text, sanitize_filename
+from .services.skills import list_skills
 from .services.workflow_engine import engine
 from .services.workspace_ops import compile_latex, zip_workspace
 from .workflows.templates import build_steps
@@ -39,6 +40,19 @@ async def health() -> dict[str, str]:
 @app.get("/api/settings")
 async def get_settings() -> dict[str, str]:
     return db.get_settings()
+
+
+@app.get("/api/skills")
+async def api_list_skills() -> list[dict[str, str]]:
+    return [
+        {
+            "id": skill.id,
+            "title": skill.title,
+            "description": skill.description,
+            "path": str(skill.path),
+        }
+        for skill in list_skills()
+    ]
 
 
 @app.post("/api/settings")

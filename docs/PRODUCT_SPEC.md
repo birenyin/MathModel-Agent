@@ -57,10 +57,13 @@ Supported presets:
 - Text artifacts can be previewed in the app.
 - A workflow workspace can be exported as a zip archive.
 - Generated LaTeX can be compiled when a TeX runtime is configured.
+- First-party Markdown skills can be listed in the UI.
+- Workflow steps automatically receive relevant skill prompts.
 
 ## Non-goals for the first MVP
 
 - exact feature parity with any existing app
 - copying third-party UI/assets/skills
+- encrypted commercial skill distribution
 - fully bundled runtime installer
 - multi-user cloud sync

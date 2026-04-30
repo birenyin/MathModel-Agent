@@ -7,6 +7,7 @@ from typing import Any
 from .. import db
 from .artifacts import write_text_artifact
 from .llm import LLMClient
+from .skills import select_skills_for_step, skill_prompt_block
 
 
 class WorkflowEngine:
@@ -103,6 +104,8 @@ class WorkflowEngine:
         return db.add_artifact(workflow["id"], step["id"], step["title"], path, kind)
 
     def _prompt_for_step(self, workflow: dict[str, Any], step: dict[str, Any]) -> str:
+        skills = select_skills_for_step(step["id"], workflow["kind"], workflow["preset"])
+        skill_block = skill_prompt_block(skills)
         return f"""
 Workflow title: {workflow['title']}
 Kind: {workflow['kind']}
@@ -119,6 +122,8 @@ Requirements:
 
 Current step:
 {step['title']} ({step['id']})
+
+{skill_block}
 
 Produce the artifact for this step. Include assumptions, decisions, and next actions.
 """.strip()

@@ -12,6 +12,7 @@ or bundled assets. It recreates the product pattern with a clean implementation:
 - Workflow engine with checkpoints
 - Local artifact workspace
 - OpenAI-compatible model provider abstraction
+- Open Markdown skill system
 - Modeling contest templates
 - Uploaded material extraction for PDF, DOCX, TXT, CSV, and XLSX
 - Workspace export as ZIP
@@ -38,6 +39,8 @@ Current implemented actions:
 - preview text artifacts
 - compile LaTeX when `xelatex` is available
 - export the workspace as a zip archive
+- load first-party skills from `backend/skills/*/SKILL.md`
+- inject relevant skills into each workflow step prompt
 
 ## Project layout
 
@@ -86,6 +89,13 @@ The backend supports OpenAI-compatible chat-completions endpoints. If no model k
 configured, it falls back to deterministic draft text so the workflow can still be tested.
 
 Settings are stored in `.data/app.db`.
+
+## Skills
+
+Skills are plain Markdown prompt modules stored under `backend/skills/<skill-id>/SKILL.md`.
+The backend exposes them at `/api/skills` and automatically injects relevant skills
+into workflow-step prompts. This keeps the product behavior close to a skill-driven
+agent workbench while using our own editable skill content.
 
 ## Packaging path
 

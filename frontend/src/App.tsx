@@ -4,6 +4,7 @@ import {
   Artifact,
   EventItem,
   Settings,
+  Skill,
   TextPreview,
   Upload,
   Workflow,
@@ -37,6 +38,7 @@ export function App() {
   const [artifacts, setArtifacts] = useState<Artifact[]>([]);
   const [uploads, setUploads] = useState<Upload[]>([]);
   const [settings, setSettings] = useState<Settings>(defaultSettings);
+  const [skills, setSkills] = useState<Skill[]>([]);
   const [preview, setPreview] = useState<TextPreview | null>(null);
   const [title, setTitle] = useState("New modeling workflow");
   const [preset, setPreset] = useState("cumcm");
@@ -71,9 +73,15 @@ export function App() {
     setSettings({ ...defaultSettings, ...saved, model_api_key: "", reviewer_api_key: "" });
   }
 
+  async function loadSkills() {
+    const available = await apiGet<Skill[]>("/api/skills");
+    setSkills(available);
+  }
+
   useEffect(() => {
     refresh().catch((err) => setError(String(err)));
     loadSettings().catch(() => undefined);
+    loadSkills().catch(() => undefined);
   }, []);
 
   useEffect(() => {
@@ -246,6 +254,18 @@ export function App() {
                 <strong>{item.title}</strong>
                 <span>{item.status}</span>
               </button>
+            ))}
+          </div>
+        </section>
+
+        <section className="panel compact">
+          <h2>Skills</h2>
+          <div className="skill-list">
+            {skills.map((skill) => (
+              <div key={skill.id} className="skill-pill" title={skill.path}>
+                <strong>{skill.title}</strong>
+                <span>{skill.description || skill.id}</span>
+              </div>
             ))}
           </div>
         </section>

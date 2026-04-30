@@ -153,6 +153,30 @@ textarea {
   font-size: 12px;
 }
 
+.skill-list {
+  display: grid;
+  gap: 8px;
+}
+
+.skill-pill {
+  border: 1px solid #dfe5df;
+  border-radius: 8px;
+  padding: 9px;
+  background: #fbfcfa;
+}
+
+.skill-pill strong {
+  display: block;
+  font-size: 13px;
+}
+
+.skill-pill span {
+  display: block;
+  color: #627067;
+  font-size: 12px;
+  margin-top: 3px;
+}
+
 .main {
   padding: 22px;
   overflow: auto;

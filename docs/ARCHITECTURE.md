@@ -35,6 +35,7 @@ flowchart LR
 - `app.db`: SQLite schema and state helpers.
 - `app.services.llm`: OpenAI-compatible provider plus local fallback.
 - `app.services.workflow_engine`: staged workflow runner.
+- `app.services.skills`: Markdown skill discovery, selection, and prompt injection.
 - `app.services.artifacts`: workspace file creation.
 - `app.workflows.templates`: contest and research workflow definitions.
 
@@ -69,4 +70,3 @@ and continue from the UI.
 - multi-model reviewer loop
 - visual model/image understanding
 - packaged runtimes and installer
-
