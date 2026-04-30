@@ -15,6 +15,7 @@ from .services.agent_chat import answer_agent_chat
 from .services.code_runner import render_run_log, run_python_file
 from .services.file_extractors import extract_text, sanitize_filename
 from .services.llm import LLMClient
+from .services.reviewer import review_workflow
 from .services.skills import list_skills
 from .services.workflow_engine import engine
 from .services.workspace_files import is_embeddable, list_workspace_files, read_workspace_text, resolve_workspace_path, write_workspace_text
@@ -362,6 +363,23 @@ async def compile_workflow(workflow_id: str) -> dict:
         except ValueError:
             pdf_rel_path = ""
     return {"ok": ok, "log": log[-8000:], "pdf_path": str(pdf_path) if pdf_path else "", "pdf_rel_path": pdf_rel_path}
+
+
+@app.post("/api/workflows/{workflow_id}/review")
+async def review(workflow_id: str) -> dict:
+    try:
+        workflow = db.get_workflow(workflow_id)
+    except KeyError:
+        raise HTTPException(status_code=404, detail="workflow not found")
+    files = list_workspace_files(Path(workflow["workspace"]))
+    result = await review_workflow(workflow, files, db.list_artifacts(workflow_id), db.list_uploads(workflow_id), db.get_settings())
+    review_dir = Path(workflow["workspace"]) / "reports"
+    review_dir.mkdir(parents=True, exist_ok=True)
+    path = review_dir / f"review-{strftime('%Y%m%d-%H%M%S')}.md"
+    path.write_text(result["report"], encoding="utf-8", errors="replace")
+    artifact = db.add_artifact(workflow_id, "review", "Review report", path, "review")
+    db.add_event(workflow_id, f"Review report generated using {result['mode']} mode.")
+    return {"ok": True, "mode": result["mode"], "report": result["report"], "artifact": artifact}
 
 
 @app.post("/api/workflows/{workflow_id}/export")

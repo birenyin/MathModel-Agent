@@ -7,6 +7,7 @@ import {
   CodeRunResult,
   EventItem,
   ModelTestResult,
+  ReviewResult,
   Settings,
   Skill,
   TextPreview,
@@ -223,6 +224,17 @@ export function App() {
   async function exportWorkflow() {
     if (!selected) return;
     await apiPost<Artifact>(`/api/workflows/${selected.id}/export`);
+    await refreshDetails(selected.id);
+  }
+
+  async function reviewWorkflow() {
+    if (!selected) return;
+    const result = await apiPost<ReviewResult>(`/api/workflows/${selected.id}/review`);
+    setActiveFile(null);
+    setEmbeddedPreview(null);
+    setCompileLog("");
+    setRunLog("");
+    setPreview({ id: result.artifact.id, filename: `Review report (${result.mode})`, text: result.report });
     await refreshDetails(selected.id);
   }
 
@@ -503,6 +515,31 @@ export function App() {
             />
           </label>
           <label>
+            Reviewer Base URL
+            <input
+              value={settings.reviewer_base_url ?? ""}
+              placeholder="Optional reviewer endpoint"
+              onChange={(e) => setSettings({ ...settings, reviewer_base_url: e.target.value })}
+            />
+          </label>
+          <label>
+            Reviewer Model
+            <input
+              value={settings.reviewer_model_name ?? ""}
+              placeholder="Optional reviewer model"
+              onChange={(e) => setSettings({ ...settings, reviewer_model_name: e.target.value })}
+            />
+          </label>
+          <label>
+            Reviewer API Key
+            <input
+              type="password"
+              value={settings.reviewer_api_key ?? ""}
+              placeholder="Leave blank to reuse fallback/provider"
+              onChange={(e) => setSettings({ ...settings, reviewer_api_key: e.target.value })}
+            />
+          </label>
+          <label>
             TeX bin path
             <input
               value={settings.texlive_bin ?? ""}
@@ -603,6 +640,7 @@ export function App() {
                 </label>
                 <button onClick={startWorkflow}>Start</button>
                 <button onClick={compileWorkflow}>Compile</button>
+                <button onClick={reviewWorkflow}>Review</button>
                 <button onClick={exportWorkflow}>Export</button>
                 <button onClick={approveWorkflow} disabled={selected.status !== "waiting"}>
                   Approve checkpoint

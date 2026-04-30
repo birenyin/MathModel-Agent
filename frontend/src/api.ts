@@ -137,6 +137,13 @@ export type ModelTestResult = {
   message: string;
 };
 
+export type ReviewResult = {
+  ok: boolean;
+  mode: string;
+  report: string;
+  artifact: Artifact;
+};
+
 export type AgentSuggestedAction = {
   id: string;
   label: string;
