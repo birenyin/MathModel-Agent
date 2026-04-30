@@ -13,7 +13,7 @@ from .services.artifacts import safe_workspace_name
 from .services.file_extractors import extract_text, sanitize_filename
 from .services.skills import list_skills
 from .services.workflow_engine import engine
-from .services.workspace_files import list_workspace_files, read_workspace_text, write_workspace_text
+from .services.workspace_files import is_embeddable, list_workspace_files, read_workspace_text, resolve_workspace_path, write_workspace_text
 from .services.workspace_ops import compile_latex, zip_workspace
 from .workflows.templates import build_steps
 
@@ -152,6 +152,23 @@ async def read_file(workflow_id: str, path: str = Query(...)) -> dict[str, str]:
     return {"id": path, "filename": path, "text": text}
 
 
+@app.get("/api/workflows/{workflow_id}/files/raw")
+async def raw_file(workflow_id: str, path: str = Query(...)):
+    try:
+        workflow = db.get_workflow(workflow_id)
+        file_path = resolve_workspace_path(Path(workflow["workspace"]), path)
+    except KeyError:
+        raise HTTPException(status_code=404, detail="workflow not found")
+    except ValueError as exc:
+        raise HTTPException(status_code=400, detail=str(exc))
+
+    if not file_path.exists() or not file_path.is_file():
+        raise HTTPException(status_code=404, detail="file not found")
+    if not is_embeddable(file_path):
+        raise HTTPException(status_code=400, detail="file cannot be embedded")
+    return FileResponse(file_path, filename=file_path.name, content_disposition_type="inline")
+
+
 @app.put("/api/workflows/{workflow_id}/files/content")
 async def save_file(workflow_id: str, payload: WorkspaceFileUpdate, path: str = Query(...)) -> dict[str, str]:
     try:
@@ -259,7 +276,13 @@ async def compile_workflow(workflow_id: str) -> dict:
     if pdf_path:
         db.add_artifact(workflow_id, "compile", "Compiled PDF", pdf_path, "pdf")
     db.add_event(workflow_id, "LaTeX compilation succeeded." if ok else "LaTeX compilation failed.", "info" if ok else "error")
-    return {"ok": ok, "log": log[-8000:], "pdf_path": str(pdf_path) if pdf_path else ""}
+    pdf_rel_path = ""
+    if pdf_path:
+        try:
+            pdf_rel_path = pdf_path.resolve().relative_to(workspace.resolve()).as_posix()
+        except ValueError:
+            pdf_rel_path = ""
+    return {"ok": ok, "log": log[-8000:], "pdf_path": str(pdf_path) if pdf_path else "", "pdf_rel_path": pdf_rel_path}
 
 
 @app.post("/api/workflows/{workflow_id}/export")

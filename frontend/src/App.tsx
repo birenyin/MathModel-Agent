@@ -33,6 +33,19 @@ const defaultSettings: Settings = {
   texlive_bin: ""
 };
 
+type CompileResult = {
+  ok: boolean;
+  log: string;
+  pdf_path: string;
+  pdf_rel_path?: string;
+};
+
+type EmbeddedPreview = {
+  title: string;
+  url: string;
+  path?: string;
+};
+
 export function App() {
   const [workflows, setWorkflows] = useState<Workflow[]>([]);
   const [selectedId, setSelectedId] = useState<string>("");
@@ -43,6 +56,8 @@ export function App() {
   const [settings, setSettings] = useState<Settings>(defaultSettings);
   const [skills, setSkills] = useState<Skill[]>([]);
   const [preview, setPreview] = useState<TextPreview | null>(null);
+  const [embeddedPreview, setEmbeddedPreview] = useState<EmbeddedPreview | null>(null);
+  const [compileLog, setCompileLog] = useState("");
   const [activeFile, setActiveFile] = useState<WorkspaceFile | null>(null);
   const [editorText, setEditorText] = useState("");
   const [editorDirty, setEditorDirty] = useState(false);
@@ -147,9 +162,19 @@ export function App() {
 
   async function compileWorkflow() {
     if (!selected) return;
-    const result = await apiPost<{ ok: boolean; log: string; pdf_path: string }>(`/api/workflows/${selected.id}/compile`);
+    const result = await apiPost<CompileResult>(`/api/workflows/${selected.id}/compile`);
     setActiveFile(null);
     setEditorDirty(false);
+    setCompileLog(result.log);
+    if (result.pdf_rel_path) {
+      setEmbeddedPreview({
+        title: result.ok ? "Compiled PDF" : "Compiled PDF with errors",
+        path: result.pdf_rel_path,
+        url: workspaceRawUrl(selected.id, result.pdf_rel_path)
+      });
+    } else {
+      setEmbeddedPreview(null);
+    }
     setPreview({ id: "compile", filename: result.ok ? "Compile succeeded" : "Compile failed", text: result.log });
     await refreshDetails(selected.id);
   }
@@ -170,10 +195,24 @@ export function App() {
   }
 
   async function previewArtifact(artifact: Artifact) {
+    if (artifact.kind === "pdf" || artifact.path.toLowerCase().endsWith(".pdf")) {
+      setActiveFile(null);
+      setEditorDirty(false);
+      setPreview(null);
+      setCompileLog("");
+      setEmbeddedPreview({
+        title: artifact.title,
+        url: `${API_BASE}/api/artifacts/${artifact.id}/file?t=${Date.now()}`
+      });
+      return;
+    }
+
     try {
       const item = await apiGet<TextPreview>(`/api/artifacts/${artifact.id}/text`);
       setActiveFile(null);
       setEditorDirty(false);
+      setEmbeddedPreview(null);
+      setCompileLog("");
       setPreview({ ...item, filename: artifact.title });
     } catch {
       window.open(`${API_BASE}/api/artifacts/${artifact.id}/file`, "_blank");
@@ -183,18 +222,33 @@ export function App() {
   async function previewUpload(upload: Upload) {
     const item = await apiGet<TextPreview>(`/api/uploads/${upload.id}/text`);
     setPreview(item);
+    setEmbeddedPreview(null);
+    setCompileLog("");
     setActiveFile(null);
     setEditorDirty(false);
   }
 
   async function openWorkspaceFile(file: WorkspaceFile) {
     if (!selected) return;
+    if (file.embeddable && file.suffix === ".pdf") {
+      setActiveFile(null);
+      setEditorDirty(false);
+      setEditorText("");
+      setPreview(null);
+      setCompileLog("");
+      setEmbeddedPreview({ title: file.path, path: file.path, url: workspaceRawUrl(selected.id, file.path) });
+      return;
+    }
+
     if (!file.text_previewable) {
       setPreview({ id: file.path, filename: file.path, text: "This file is not editable text." });
       setActiveFile(null);
       setEditorDirty(false);
+      setEmbeddedPreview(file.embeddable ? { title: file.path, path: file.path, url: workspaceRawUrl(selected.id, file.path) } : null);
+      setCompileLog("");
       return;
     }
+
     const item = await apiGet<TextPreview>(
       `/api/workflows/${selected.id}/files/content?path=${encodeURIComponent(file.path)}`
     );
@@ -202,6 +256,8 @@ export function App() {
     setEditorText(item.text);
     setEditorDirty(false);
     setPreview(null);
+    setCompileLog("");
+    setEmbeddedPreview(findCompanionPreview(file, selected.id, workspaceFiles));
   }
 
   async function saveWorkspaceFile() {
@@ -213,8 +269,31 @@ export function App() {
     await refreshDetails(selected.id);
   }
 
+  async function compileLatexPreview() {
+    if (!selected) return;
+    if (activeFile && editorDirty) {
+      await saveWorkspaceFile();
+    }
+    const result = await apiPost<CompileResult>(`/api/workflows/${selected.id}/compile`);
+    setCompileLog(result.log);
+    if (result.pdf_rel_path) {
+      setEmbeddedPreview({
+        title: result.ok ? result.pdf_rel_path : `${result.pdf_rel_path} (compile failed)`,
+        path: result.pdf_rel_path,
+        url: workspaceRawUrl(selected.id, result.pdf_rel_path)
+      });
+      setPreview(null);
+    } else {
+      setEmbeddedPreview(null);
+      setPreview({ id: "compile", filename: "Compile failed", text: result.log });
+    }
+    await refreshDetails(selected.id);
+  }
+
   function clearPreview() {
     setPreview(null);
+    setEmbeddedPreview(null);
+    setCompileLog("");
     setActiveFile(null);
     setEditorText("");
     setEditorDirty(false);
@@ -436,7 +515,7 @@ export function App() {
                     {workspaceFiles.map((file) => (
                       <button key={file.path} onClick={() => openWorkspaceFile(file)}>
                         <strong>{file.path}</strong>
-                        <span>{file.text_previewable ? "editable text" : "binary or external file"}</span>
+                        <span>{file.text_previewable ? "editable text" : file.embeddable ? "embedded preview" : "binary or external file"}</span>
                         <small>{file.size.toLocaleString()} bytes</small>
                       </button>
                     ))}
@@ -447,17 +526,42 @@ export function App() {
 
             <section className="panel preview">
               <div className="preview-head">
-                <h3>{activeFile?.path ?? preview?.filename ?? "Preview"}</h3>
+                <h3>{activeFile?.path ?? embeddedPreview?.title ?? preview?.filename ?? "Preview"}</h3>
                 <div className="preview-actions">
                   {activeFile && (
                     <button onClick={saveWorkspaceFile} disabled={!editorDirty}>
                       Save
                     </button>
                   )}
-                  {(activeFile || preview) && <button onClick={clearPreview}>Clear</button>}
+                  {activeFile?.suffix === ".tex" && <button onClick={compileLatexPreview}>Compile PDF</button>}
+                  {embeddedPreview && <button onClick={() => window.open(embeddedPreview.url, "_blank")}>Open</button>}
+                  {(activeFile || preview || embeddedPreview) && <button onClick={clearPreview}>Clear</button>}
                 </div>
               </div>
-              {activeFile ? (
+              {activeFile?.suffix === ".tex" ? (
+                <div className="latex-workbench">
+                  <textarea
+                    className="editor latex-editor"
+                    value={editorText}
+                    rows={20}
+                    onChange={(event) => {
+                      setEditorText(event.target.value);
+                      setEditorDirty(true);
+                    }}
+                  />
+                  <div className="pdf-pane">
+                    {embeddedPreview ? (
+                      <iframe title={embeddedPreview.title} src={embeddedPreview.url} />
+                    ) : (
+                      <div className="pdf-empty">
+                        <strong>No PDF preview yet.</strong>
+                        <span>Compile the LaTeX file to render a preview here.</span>
+                      </div>
+                    )}
+                  </div>
+                  {compileLog && <pre className="compile-log">{compileLog}</pre>}
+                </div>
+              ) : activeFile ? (
                 <textarea
                   className="editor"
                   value={editorText}
@@ -467,6 +571,13 @@ export function App() {
                     setEditorDirty(true);
                   }}
                 />
+              ) : embeddedPreview ? (
+                <>
+                  <div className="pdf-pane full">
+                    <iframe title={embeddedPreview.title} src={embeddedPreview.url} />
+                  </div>
+                  {compileLog && <pre className="compile-log">{compileLog}</pre>}
+                </>
               ) : preview ? (
                 <pre>{preview.text}</pre>
               ) : (
@@ -482,4 +593,18 @@ export function App() {
       </main>
     </div>
   );
+}
+
+function workspaceRawUrl(workflowId: string, path: string): string {
+  return `${API_BASE}/api/workflows/${workflowId}/files/raw?path=${encodeURIComponent(path)}&t=${Date.now()}`;
+}
+
+function findCompanionPreview(file: WorkspaceFile, workflowId: string, files: WorkspaceFile[]): EmbeddedPreview | null {
+  if (file.suffix !== ".tex") return null;
+  const pdfPath = file.path.replace(/\.tex$/i, ".pdf");
+  const companion = files.find((item) => item.path.toLowerCase() === pdfPath.toLowerCase());
+  const fallback = files.find((item) => item.path.toLowerCase() === "paper/main.pdf");
+  const match = companion ?? fallback;
+  if (!match) return null;
+  return { title: match.path, path: match.path, url: workspaceRawUrl(workflowId, match.path) };
 }

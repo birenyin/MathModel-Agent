@@ -67,6 +67,7 @@ and continue from the UI.
 - document preview for PDF, DOCX, XLSX
 - Python code execution with approval
 - richer LaTeX editor and compiler log viewer
+- PDF preview controls with page navigation/search polish
 - artifact export as zip
 - multi-model reviewer loop
 - visual model/image understanding

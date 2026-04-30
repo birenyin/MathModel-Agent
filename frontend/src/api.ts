@@ -114,4 +114,5 @@ export type WorkspaceFile = {
   size: number;
   suffix: string;
   text_previewable: boolean;
+  embeddable: boolean;
 };

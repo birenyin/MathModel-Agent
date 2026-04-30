@@ -17,6 +17,16 @@ TEXT_SUFFIXES = {
     ".yml",
 }
 
+EMBED_SUFFIXES = {
+    ".gif",
+    ".jpg",
+    ".jpeg",
+    ".pdf",
+    ".png",
+    ".svg",
+    ".webp",
+}
+
 MAX_TEXT_BYTES = 2_000_000
 
 
@@ -40,6 +50,7 @@ def list_workspace_files(workspace: Path, max_files: int = 500) -> list[dict[str
                 "size": stat.st_size,
                 "suffix": path.suffix.lower(),
                 "text_previewable": is_text_previewable(path),
+                "embeddable": is_embeddable(path),
             }
         )
     return items
@@ -77,3 +88,7 @@ def resolve_workspace_path(workspace: Path, rel_path: str) -> Path:
 
 def is_text_previewable(path: Path) -> bool:
     return path.suffix.lower() in TEXT_SUFFIXES
+
+
+def is_embeddable(path: Path) -> bool:
+    return path.suffix.lower() in EMBED_SUFFIXES
