@@ -43,12 +43,16 @@ def list_workspace_files(workspace: Path, max_files: int = 500) -> list[dict[str
             continue
         rel_path = path.relative_to(root).as_posix()
         stat = path.stat()
+        suffix = path.suffix.lower()
         items.append(
             {
                 "path": rel_path,
                 "name": path.name,
                 "size": stat.st_size,
-                "suffix": path.suffix.lower(),
+                "suffix": suffix,
+                "directory": path.parent.relative_to(root).as_posix() if path.parent != root else "",
+                "category": categorize_workspace_file(rel_path, suffix),
+                "modified_at": stat.st_mtime,
                 "text_previewable": is_text_previewable(path),
                 "embeddable": is_embeddable(path),
             }
@@ -92,3 +96,24 @@ def is_text_previewable(path: Path) -> bool:
 
 def is_embeddable(path: Path) -> bool:
     return path.suffix.lower() in EMBED_SUFFIXES
+
+
+def categorize_workspace_file(rel_path: str, suffix: str) -> str:
+    path = rel_path.replace("\\", "/").lower()
+    if path.startswith("paper/") or suffix == ".tex":
+        return "paper"
+    if path.startswith("code/") or suffix in {".py", ".m", ".r"}:
+        return "code"
+    if path.startswith("figures/") or suffix in {".png", ".jpg", ".jpeg", ".svg", ".webp"}:
+        return "figures"
+    if path.startswith("tables/") or suffix in {".csv", ".xlsx", ".xlsm"}:
+        return "tables"
+    if path.startswith("input/"):
+        return "input"
+    if path.startswith("runs/") or suffix == ".log":
+        return "logs"
+    if suffix == ".pdf":
+        return "pdf"
+    if path.startswith("reports/") or suffix in {".md", ".txt"}:
+        return "reports"
+    return "other"

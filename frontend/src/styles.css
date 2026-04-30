@@ -444,6 +444,45 @@ button.small {
   color: #627067;
 }
 
+.quick-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+  margin-bottom: 10px;
+}
+
+.file-tree {
+  display: grid;
+  gap: 12px;
+}
+
+.file-group {
+  display: grid;
+  gap: 6px;
+}
+
+.file-group h4 {
+  margin: 0;
+  color: #445049;
+  font-size: 12px;
+  text-transform: uppercase;
+}
+
+.file-group button {
+  display: grid;
+  gap: 3px;
+  padding: 8px;
+  text-align: left;
+  border: 1px solid #e1e6e1;
+  background: #fff;
+}
+
+.file-group span,
+.file-group small {
+  color: #627067;
+  word-break: break-word;
+}
+
 .preview {
   margin-top: 16px;
 }

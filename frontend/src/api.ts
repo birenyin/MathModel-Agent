@@ -113,6 +113,9 @@ export type WorkspaceFile = {
   name: string;
   size: number;
   suffix: string;
+  directory: string;
+  category: string;
+  modified_at: number;
   text_previewable: boolean;
   embeddable: boolean;
 };

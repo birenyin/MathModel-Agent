@@ -62,6 +62,7 @@ Supported presets:
 - Model-provider settings can be tested before starting long workflows.
 - A right-side Agent dock can answer questions using current workflow, files, artifacts, uploads, events, and active file context.
 - The Agent can suggest local workbench actions such as running Python, compiling LaTeX, opening PDFs, and reviewing next steps.
+- Workspace files are grouped by functional type, with shortcuts for main LaTeX, latest PDF, and latest log.
 - A user can rerun a selected workflow step without recreating the workflow.
 - A workflow workspace can be exported as a zip archive.
 - Generated LaTeX can be compiled when a TeX runtime is configured.

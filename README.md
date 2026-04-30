@@ -44,6 +44,8 @@ Current implemented actions:
 - test model-provider settings from the UI
 - chat with a right-side workflow-aware Agent dock
 - trigger suggested Agent actions such as running Python, compiling LaTeX, and opening PDFs
+- browse workspace files grouped by paper, code, figures, tables, logs, and inputs
+- quickly open `paper/main.tex`, latest PDF, and latest log
 - rerun a selected workflow step and regenerate that step plus later steps
 - compile LaTeX when `xelatex` is available
 - export the workspace as a zip archive

@@ -94,6 +94,7 @@ export function App() {
     () => workflows.find((item) => item.id === selectedId) ?? workflows[0],
     [workflows, selectedId]
   );
+  const groupedWorkspaceFiles = useMemo(() => groupWorkspaceFiles(workspaceFiles), [workspaceFiles]);
 
   async function refresh() {
     const list = await apiGet<Workflow[]>("/api/workflows");
@@ -294,6 +295,24 @@ export function App() {
     setCompileLog("");
     setRunLog("");
     setEmbeddedPreview(findCompanionPreview(file, selected.id, workspaceFiles));
+  }
+
+  async function openMainTex() {
+    const file =
+      workspaceFiles.find((item) => item.path.toLowerCase() === "paper/main.tex") ??
+      workspaceFiles.find((item) => item.name.toLowerCase() === "main.tex") ??
+      workspaceFiles.find((item) => item.suffix === ".tex");
+    if (file) await openWorkspaceFile(file);
+  }
+
+  async function openLatestPdf() {
+    const file = latestFile(workspaceFiles.filter((item) => item.suffix === ".pdf"));
+    if (file) await openWorkspaceFile(file);
+  }
+
+  async function openLatestLog() {
+    const file = latestFile(workspaceFiles.filter((item) => item.suffix === ".log"));
+    if (file) await openWorkspaceFile(file);
   }
 
   async function saveWorkspaceFile() {
@@ -632,16 +651,32 @@ export function App() {
 
               <section className="panel artifacts">
                 <h3>Workspace Files</h3>
+                <div className="quick-actions">
+                  <button className="small" onClick={openMainTex} disabled={!workspaceFiles.some((file) => file.suffix === ".tex")}>
+                    main.tex
+                  </button>
+                  <button className="small" onClick={openLatestPdf} disabled={!workspaceFiles.some((file) => file.suffix === ".pdf")}>
+                    Latest PDF
+                  </button>
+                  <button className="small" onClick={openLatestLog} disabled={!workspaceFiles.some((file) => file.suffix === ".log")}>
+                    Latest Log
+                  </button>
+                </div>
                 {workspaceFiles.length === 0 ? (
                   <p className="muted">No workspace files yet.</p>
                 ) : (
-                  <div className="artifact-list">
-                    {workspaceFiles.map((file) => (
-                      <button key={file.path} onClick={() => openWorkspaceFile(file)}>
-                        <strong>{file.path}</strong>
-                        <span>{file.text_previewable ? "editable text" : file.embeddable ? "embedded preview" : "binary or external file"}</span>
-                        <small>{file.size.toLocaleString()} bytes</small>
-                      </button>
+                  <div className="file-tree">
+                    {groupedWorkspaceFiles.map(([category, files]) => (
+                      <div className="file-group" key={category}>
+                        <h4>{categoryLabels[category] ?? category}</h4>
+                        {files.map((file) => (
+                          <button key={file.path} onClick={() => openWorkspaceFile(file)}>
+                            <strong>{file.name}</strong>
+                            <span>{file.path}</span>
+                            <small>{fileMeta(file)}</small>
+                          </button>
+                        ))}
+                      </div>
                     ))}
                   </div>
                 )}
@@ -793,6 +828,49 @@ function findCompanionPreview(file: WorkspaceFile, workflowId: string, files: Wo
   const match = companion ?? fallback;
   if (!match) return null;
   return { title: match.path, path: match.path, url: workspaceRawUrl(workflowId, match.path) };
+}
+
+const categoryOrder = ["paper", "code", "figures", "tables", "pdf", "logs", "reports", "input", "other"];
+
+const categoryLabels: Record<string, string> = {
+  paper: "Paper",
+  code: "Code",
+  figures: "Figures",
+  tables: "Tables",
+  pdf: "PDF",
+  logs: "Logs",
+  reports: "Reports",
+  input: "Input",
+  other: "Other"
+};
+
+function groupWorkspaceFiles(files: WorkspaceFile[]): Array<[string, WorkspaceFile[]]> {
+  const groups = new Map<string, WorkspaceFile[]>();
+  for (const file of files) {
+    const items = groups.get(file.category) ?? [];
+    items.push(file);
+    groups.set(file.category, items);
+  }
+  return [...groups.entries()]
+    .sort(([left], [right]) => categoryRank(left) - categoryRank(right) || left.localeCompare(right))
+    .map(([category, items]) => [
+      category,
+      items.sort((left, right) => left.path.localeCompare(right.path))
+    ]);
+}
+
+function categoryRank(category: string): number {
+  const index = categoryOrder.indexOf(category);
+  return index === -1 ? 999 : index;
+}
+
+function latestFile(files: WorkspaceFile[]): WorkspaceFile | undefined {
+  return [...files].sort((left, right) => right.modified_at - left.modified_at)[0];
+}
+
+function fileMeta(file: WorkspaceFile): string {
+  const mode = file.text_previewable ? "editable" : file.embeddable ? "preview" : "file";
+  return `${mode} / ${file.size.toLocaleString()} bytes`;
 }
 
 function formatRunResult(path: string, result: CodeRunResult): string {
