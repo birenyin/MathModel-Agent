@@ -37,6 +37,8 @@ Current implemented actions:
 - run staged workflow artifacts in fallback mode or with a configured model
 - approve checkpoint steps
 - preview text artifacts
+- browse and edit text files inside the workflow workspace
+- rerun a selected workflow step and regenerate that step plus later steps
 - compile LaTeX when `xelatex` is available
 - export the workspace as a zip archive
 - load first-party skills from `backend/skills/*/SKILL.md`

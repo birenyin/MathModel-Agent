@@ -1,4 +1,5 @@
 node_modules/
+.npm-cache/
 frontend/dist/
 backend/.venv/
 backend/.data/

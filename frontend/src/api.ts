@@ -22,6 +22,16 @@ export async function apiPost<T>(path: string, body: unknown = {}): Promise<T> {
   return response.json();
 }
 
+export async function apiPut<T>(path: string, body: unknown = {}): Promise<T> {
+  const response = await fetch(`${API_BASE}${path}`, {
+    method: "PUT",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify(body)
+  });
+  if (!response.ok) throw new Error(await response.text());
+  return response.json();
+}
+
 export async function apiPostForm<T>(path: string, body: FormData): Promise<T> {
   const response = await fetch(`${API_BASE}${path}`, {
     method: "POST",
@@ -96,4 +106,12 @@ export type Skill = {
   title: string;
   description: string;
   path: string;
+};
+
+export type WorkspaceFile = {
+  path: string;
+  name: string;
+  size: number;
+  suffix: string;
+  text_previewable: boolean;
 };

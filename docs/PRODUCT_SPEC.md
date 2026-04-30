@@ -55,6 +55,8 @@ Supported presets:
 - Problem PDFs, DOCX files, spreadsheets, CSV files, and text files can be uploaded.
 - Uploaded text is added to the workflow context.
 - Text artifacts can be previewed in the app.
+- Workspace text files can be browsed, edited, and saved in the app.
+- A user can rerun a selected workflow step without recreating the workflow.
 - A workflow workspace can be exported as a zip archive.
 - Generated LaTeX can be compiled when a TeX runtime is configured.
 - First-party Markdown skills can be listed in the UI.

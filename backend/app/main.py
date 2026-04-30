@@ -2,17 +2,18 @@ from __future__ import annotations
 
 from pathlib import Path
 
-from fastapi import FastAPI, HTTPException, UploadFile
+from fastapi import FastAPI, HTTPException, Query, UploadFile
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import FileResponse
 
 from . import db
 from .config import APP_NAME, APP_VERSION, WORKSPACES_DIR, ensure_runtime_dirs
-from .models import SettingsUpdate, StepApproval, WorkflowCreate
+from .models import SettingsUpdate, StepApproval, WorkflowCreate, WorkspaceFileUpdate
 from .services.artifacts import safe_workspace_name
 from .services.file_extractors import extract_text, sanitize_filename
 from .services.skills import list_skills
 from .services.workflow_engine import engine
+from .services.workspace_files import list_workspace_files, read_workspace_text, write_workspace_text
 from .services.workspace_ops import compile_latex, zip_workspace
 from .workflows.templates import build_steps
 
@@ -106,6 +107,18 @@ async def approve_workflow(workflow_id: str, payload: StepApproval) -> dict[str,
     return {"status": "approved"}
 
 
+@app.post("/api/workflows/{workflow_id}/steps/{step_id}/rerun")
+async def rerun_workflow_step(workflow_id: str, step_id: str) -> dict[str, str]:
+    try:
+        db.get_workflow(workflow_id)
+        started = engine.rerun_from_step(workflow_id, step_id)
+    except KeyError:
+        raise HTTPException(status_code=404, detail="workflow or step not found")
+    if not started:
+        raise HTTPException(status_code=409, detail="workflow is already running")
+    return {"status": "started"}
+
+
 @app.get("/api/workflows/{workflow_id}/events")
 async def list_events(workflow_id: str) -> list[dict]:
     return db.list_events(workflow_id)
@@ -114,6 +127,43 @@ async def list_events(workflow_id: str) -> list[dict]:
 @app.get("/api/workflows/{workflow_id}/artifacts")
 async def list_artifacts(workflow_id: str) -> list[dict]:
     return db.list_artifacts(workflow_id)
+
+
+@app.get("/api/workflows/{workflow_id}/files")
+async def list_files(workflow_id: str) -> list[dict]:
+    try:
+        workflow = db.get_workflow(workflow_id)
+    except KeyError:
+        raise HTTPException(status_code=404, detail="workflow not found")
+    return list_workspace_files(Path(workflow["workspace"]))
+
+
+@app.get("/api/workflows/{workflow_id}/files/content")
+async def read_file(workflow_id: str, path: str = Query(...)) -> dict[str, str]:
+    try:
+        workflow = db.get_workflow(workflow_id)
+        text = read_workspace_text(Path(workflow["workspace"]), path)
+    except KeyError:
+        raise HTTPException(status_code=404, detail="workflow not found")
+    except FileNotFoundError:
+        raise HTTPException(status_code=404, detail="file not found")
+    except ValueError as exc:
+        raise HTTPException(status_code=400, detail=str(exc))
+    return {"id": path, "filename": path, "text": text}
+
+
+@app.put("/api/workflows/{workflow_id}/files/content")
+async def save_file(workflow_id: str, payload: WorkspaceFileUpdate, path: str = Query(...)) -> dict[str, str]:
+    try:
+        workflow = db.get_workflow(workflow_id)
+        saved = write_workspace_text(Path(workflow["workspace"]), path, payload.content)
+    except KeyError:
+        raise HTTPException(status_code=404, detail="workflow not found")
+    except ValueError as exc:
+        raise HTTPException(status_code=400, detail=str(exc))
+    rel_path = saved.relative_to(Path(workflow["workspace"]).resolve())
+    db.add_event(workflow_id, f"Saved workspace file: {rel_path}")
+    return {"status": "saved", "path": path}
 
 
 @app.post("/api/workflows/{workflow_id}/uploads")

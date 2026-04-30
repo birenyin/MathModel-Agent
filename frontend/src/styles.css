@@ -227,7 +227,7 @@ textarea {
 }
 
 .grid.lower {
-  grid-template-columns: 1fr 1fr;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
 }
 
 .steps {
@@ -237,7 +237,7 @@ textarea {
 
 .step {
   display: grid;
-  grid-template-columns: 30px 1fr;
+  grid-template-columns: 30px 1fr auto;
   gap: 10px;
   align-items: center;
   padding: 9px;
@@ -271,6 +271,11 @@ textarea {
   display: block;
   color: #627067;
   margin-top: 2px;
+}
+
+button.small {
+  padding: 6px 8px;
+  font-size: 12px;
 }
 
 .log {
@@ -342,6 +347,11 @@ textarea {
   margin-bottom: 12px;
 }
 
+.preview-actions {
+  display: flex;
+  gap: 8px;
+}
+
 .preview pre {
   margin: 0;
   max-height: 420px;
@@ -354,6 +364,14 @@ textarea {
   padding: 12px;
   font-size: 13px;
   line-height: 1.55;
+}
+
+.editor {
+  min-height: 420px;
+  font-family: "Cascadia Code", Consolas, monospace;
+  font-size: 13px;
+  line-height: 1.55;
+  white-space: pre;
 }
 
 .error {

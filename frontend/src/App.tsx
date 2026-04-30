@@ -8,9 +8,11 @@ import {
   TextPreview,
   Upload,
   Workflow,
+  WorkspaceFile,
   apiGet,
   apiPost,
-  apiPostForm
+  apiPostForm,
+  apiPut
 } from "./api";
 
 const presets = [
@@ -37,9 +39,13 @@ export function App() {
   const [events, setEvents] = useState<EventItem[]>([]);
   const [artifacts, setArtifacts] = useState<Artifact[]>([]);
   const [uploads, setUploads] = useState<Upload[]>([]);
+  const [workspaceFiles, setWorkspaceFiles] = useState<WorkspaceFile[]>([]);
   const [settings, setSettings] = useState<Settings>(defaultSettings);
   const [skills, setSkills] = useState<Skill[]>([]);
   const [preview, setPreview] = useState<TextPreview | null>(null);
+  const [activeFile, setActiveFile] = useState<WorkspaceFile | null>(null);
+  const [editorText, setEditorText] = useState("");
+  const [editorDirty, setEditorDirty] = useState(false);
   const [title, setTitle] = useState("New modeling workflow");
   const [preset, setPreset] = useState("cumcm");
   const [problemText, setProblemText] = useState("");
@@ -58,14 +64,16 @@ export function App() {
   }
 
   async function refreshDetails(workflowId: string) {
-    const [ev, ar, up] = await Promise.all([
+    const [ev, ar, up, files] = await Promise.all([
       apiGet<EventItem[]>(`/api/workflows/${workflowId}/events`),
       apiGet<Artifact[]>(`/api/workflows/${workflowId}/artifacts`),
-      apiGet<Upload[]>(`/api/workflows/${workflowId}/uploads`)
+      apiGet<Upload[]>(`/api/workflows/${workflowId}/uploads`),
+      apiGet<WorkspaceFile[]>(`/api/workflows/${workflowId}/files`)
     ]);
     setEvents(ev);
     setArtifacts(ar);
     setUploads(up);
+    setWorkspaceFiles(files);
   }
 
   async function loadSettings() {
@@ -86,6 +94,7 @@ export function App() {
 
   useEffect(() => {
     if (!selected?.id) return;
+    clearPreview();
     refreshDetails(selected.id).catch((err) => setError(String(err)));
     const timer = window.setInterval(() => {
       refresh().catch(() => undefined);
@@ -128,9 +137,19 @@ export function App() {
     await refresh();
   }
 
+  async function rerunStep(stepId: string) {
+    if (!selected) return;
+    setError("");
+    await apiPost(`/api/workflows/${selected.id}/steps/${stepId}/rerun`);
+    await refresh();
+    await refreshDetails(selected.id);
+  }
+
   async function compileWorkflow() {
     if (!selected) return;
     const result = await apiPost<{ ok: boolean; log: string; pdf_path: string }>(`/api/workflows/${selected.id}/compile`);
+    setActiveFile(null);
+    setEditorDirty(false);
     setPreview({ id: "compile", filename: result.ok ? "Compile succeeded" : "Compile failed", text: result.log });
     await refreshDetails(selected.id);
   }
@@ -153,6 +172,8 @@ export function App() {
   async function previewArtifact(artifact: Artifact) {
     try {
       const item = await apiGet<TextPreview>(`/api/artifacts/${artifact.id}/text`);
+      setActiveFile(null);
+      setEditorDirty(false);
       setPreview({ ...item, filename: artifact.title });
     } catch {
       window.open(`${API_BASE}/api/artifacts/${artifact.id}/file`, "_blank");
@@ -162,6 +183,41 @@ export function App() {
   async function previewUpload(upload: Upload) {
     const item = await apiGet<TextPreview>(`/api/uploads/${upload.id}/text`);
     setPreview(item);
+    setActiveFile(null);
+    setEditorDirty(false);
+  }
+
+  async function openWorkspaceFile(file: WorkspaceFile) {
+    if (!selected) return;
+    if (!file.text_previewable) {
+      setPreview({ id: file.path, filename: file.path, text: "This file is not editable text." });
+      setActiveFile(null);
+      setEditorDirty(false);
+      return;
+    }
+    const item = await apiGet<TextPreview>(
+      `/api/workflows/${selected.id}/files/content?path=${encodeURIComponent(file.path)}`
+    );
+    setActiveFile(file);
+    setEditorText(item.text);
+    setEditorDirty(false);
+    setPreview(null);
+  }
+
+  async function saveWorkspaceFile() {
+    if (!selected || !activeFile) return;
+    await apiPut(`/api/workflows/${selected.id}/files/content?path=${encodeURIComponent(activeFile.path)}`, {
+      content: editorText
+    });
+    setEditorDirty(false);
+    await refreshDetails(selected.id);
+  }
+
+  function clearPreview() {
+    setPreview(null);
+    setActiveFile(null);
+    setEditorText("");
+    setEditorDirty(false);
   }
 
   return (
@@ -315,6 +371,9 @@ export function App() {
                           {step.checkpoint ? " / checkpoint" : ""}
                         </small>
                       </div>
+                      <button className="small" onClick={() => rerunStep(step.id)} disabled={selected.status === "running"}>
+                        Rerun
+                      </button>
                     </div>
                   ))}
                 </div>
@@ -367,14 +426,52 @@ export function App() {
                   </div>
                 )}
               </section>
+
+              <section className="panel artifacts">
+                <h3>Workspace Files</h3>
+                {workspaceFiles.length === 0 ? (
+                  <p className="muted">No workspace files yet.</p>
+                ) : (
+                  <div className="artifact-list">
+                    {workspaceFiles.map((file) => (
+                      <button key={file.path} onClick={() => openWorkspaceFile(file)}>
+                        <strong>{file.path}</strong>
+                        <span>{file.text_previewable ? "editable text" : "binary or external file"}</span>
+                        <small>{file.size.toLocaleString()} bytes</small>
+                      </button>
+                    ))}
+                  </div>
+                )}
+              </section>
             </section>
 
             <section className="panel preview">
               <div className="preview-head">
-                <h3>{preview?.filename ?? "Preview"}</h3>
-                {preview && <button onClick={() => setPreview(null)}>Clear</button>}
+                <h3>{activeFile?.path ?? preview?.filename ?? "Preview"}</h3>
+                <div className="preview-actions">
+                  {activeFile && (
+                    <button onClick={saveWorkspaceFile} disabled={!editorDirty}>
+                      Save
+                    </button>
+                  )}
+                  {(activeFile || preview) && <button onClick={clearPreview}>Clear</button>}
+                </div>
               </div>
-              {preview ? <pre>{preview.text}</pre> : <p className="muted">Select an input or artifact to preview text.</p>}
+              {activeFile ? (
+                <textarea
+                  className="editor"
+                  value={editorText}
+                  rows={20}
+                  onChange={(event) => {
+                    setEditorText(event.target.value);
+                    setEditorDirty(true);
+                  }}
+                />
+              ) : preview ? (
+                <pre>{preview.text}</pre>
+              ) : (
+                <p className="muted">Select an input, artifact, or workspace file to preview text.</p>
+              )}
             </section>
           </>
         ) : (

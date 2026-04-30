@@ -36,6 +36,7 @@ flowchart LR
 - `app.services.llm`: OpenAI-compatible provider plus local fallback.
 - `app.services.workflow_engine`: staged workflow runner.
 - `app.services.skills`: Markdown skill discovery, selection, and prompt injection.
+- `app.services.workspace_files`: safe workspace file browsing and text editing.
 - `app.services.artifacts`: workspace file creation.
 - `app.workflows.templates`: contest and research workflow definitions.
 
@@ -65,7 +66,7 @@ and continue from the UI.
 - file upload and problem extraction
 - document preview for PDF, DOCX, XLSX
 - Python code execution with approval
-- LaTeX editor and compiler log viewer
+- richer LaTeX editor and compiler log viewer
 - artifact export as zip
 - multi-model reviewer loop
 - visual model/image understanding

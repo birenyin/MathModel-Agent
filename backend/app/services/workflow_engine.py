@@ -32,6 +32,29 @@ class WorkflowEngine:
         db.add_event(workflow_id, f"Checkpoint approved. {note}".strip())
         self.start(workflow_id)
 
+    def rerun_from_step(self, workflow_id: str, step_id: str) -> bool:
+        if workflow_id in self.tasks and not self.tasks[workflow_id].done():
+            return False
+
+        workflow = db.get_workflow(workflow_id)
+        step_index = next((index for index, step in enumerate(workflow["steps"]) if step["id"] == step_id), None)
+        if step_index is None:
+            raise KeyError(step_id)
+
+        for index, step in enumerate(workflow["steps"]):
+            if index < step_index and step["status"] == "waiting":
+                step["status"] = "completed"
+            if index >= step_index:
+                step["status"] = "pending"
+                step["artifact_path"] = None
+
+        workflow["status"] = "running"
+        workflow["current_step"] = step_id
+        db.save_workflow(workflow)
+        db.add_event(workflow_id, f"Rerun requested from step: {workflow['steps'][step_index]['title']}")
+        self.start(workflow_id)
+        return True
+
     async def _run(self, workflow_id: str) -> None:
         workflow = db.get_workflow(workflow_id)
         workflow["status"] = "running"

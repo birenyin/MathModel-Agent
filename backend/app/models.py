@@ -32,6 +32,10 @@ class StepApproval(BaseModel):
     note: str = ""
 
 
+class WorkspaceFileUpdate(BaseModel):
+    content: str = ""
+
+
 class WorkflowResponse(BaseModel):
     id: str
     kind: str
