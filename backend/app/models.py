@@ -25,6 +25,7 @@ class SettingsUpdate(BaseModel):
     reviewer_base_url: str = ""
     reviewer_model_name: str = ""
     reviewer_api_key: str = ""
+    texlive_bin: str = ""
 
 
 class StepApproval(BaseModel):
@@ -50,3 +51,11 @@ class ArtifactResponse(BaseModel):
     path: str
     kind: str
 
+
+class UploadResponse(BaseModel):
+    id: str
+    workflow_id: str
+    filename: str
+    path: str
+    content_type: str
+    extracted_chars: int

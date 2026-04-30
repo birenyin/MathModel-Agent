@@ -13,6 +13,9 @@ or bundled assets. It recreates the product pattern with a clean implementation:
 - Local artifact workspace
 - OpenAI-compatible model provider abstraction
 - Modeling contest templates
+- Uploaded material extraction for PDF, DOCX, TXT, CSV, and XLSX
+- Workspace export as ZIP
+- LaTeX compile endpoint for generated `paper/main.tex`
 
 ## MVP scope
 
@@ -24,6 +27,17 @@ The first useful product loop is:
 4. Pause at important checkpoints.
 5. Generate artifacts under a local workspace.
 6. Edit, rerun, export, and review.
+
+Current implemented actions:
+
+- create contest workflows
+- upload problem/material files
+- extract text into the workflow context
+- run staged workflow artifacts in fallback mode or with a configured model
+- approve checkpoint steps
+- preview text artifacts
+- compile LaTeX when `xelatex` is available
+- export the workspace as a zip archive
 
 ## Project layout
 
@@ -71,7 +85,7 @@ The Electron process starts the Python backend on `127.0.0.1:18089`, then opens 
 The backend supports OpenAI-compatible chat-completions endpoints. If no model key is
 configured, it falls back to deterministic draft text so the workflow can still be tested.
 
-Settings are stored in `backend/.data/app.db`.
+Settings are stored in `.data/app.db`.
 
 ## Packaging path
 
@@ -83,4 +97,3 @@ For a real product release, add:
 - electron-builder Windows installer
 - auto update channel
 - signed executable
-

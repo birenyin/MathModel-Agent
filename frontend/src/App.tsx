@@ -1,5 +1,16 @@
-import { useEffect, useMemo, useState } from "react";
-import { API_BASE, Artifact, EventItem, Workflow, apiGet, apiPost } from "./api";
+import { ChangeEvent, useEffect, useMemo, useState } from "react";
+import {
+  API_BASE,
+  Artifact,
+  EventItem,
+  Settings,
+  TextPreview,
+  Upload,
+  Workflow,
+  apiGet,
+  apiPost,
+  apiPostForm
+} from "./api";
 
 const presets = [
   ["cumcm", "CUMCM"],
@@ -9,11 +20,24 @@ const presets = [
   ["stats", "Statistics Modeling"]
 ];
 
+const defaultSettings: Settings = {
+  model_base_url: "",
+  model_name: "",
+  model_api_key: "",
+  reviewer_base_url: "",
+  reviewer_model_name: "",
+  reviewer_api_key: "",
+  texlive_bin: ""
+};
+
 export function App() {
   const [workflows, setWorkflows] = useState<Workflow[]>([]);
   const [selectedId, setSelectedId] = useState<string>("");
   const [events, setEvents] = useState<EventItem[]>([]);
   const [artifacts, setArtifacts] = useState<Artifact[]>([]);
+  const [uploads, setUploads] = useState<Upload[]>([]);
+  const [settings, setSettings] = useState<Settings>(defaultSettings);
+  const [preview, setPreview] = useState<TextPreview | null>(null);
   const [title, setTitle] = useState("New modeling workflow");
   const [preset, setPreset] = useState("cumcm");
   const [problemText, setProblemText] = useState("");
@@ -32,16 +56,24 @@ export function App() {
   }
 
   async function refreshDetails(workflowId: string) {
-    const [ev, ar] = await Promise.all([
+    const [ev, ar, up] = await Promise.all([
       apiGet<EventItem[]>(`/api/workflows/${workflowId}/events`),
-      apiGet<Artifact[]>(`/api/workflows/${workflowId}/artifacts`)
+      apiGet<Artifact[]>(`/api/workflows/${workflowId}/artifacts`),
+      apiGet<Upload[]>(`/api/workflows/${workflowId}/uploads`)
     ]);
     setEvents(ev);
     setArtifacts(ar);
+    setUploads(up);
+  }
+
+  async function loadSettings() {
+    const saved = await apiGet<Settings>("/api/settings");
+    setSettings({ ...defaultSettings, ...saved, model_api_key: "", reviewer_api_key: "" });
   }
 
   useEffect(() => {
     refresh().catch((err) => setError(String(err)));
+    loadSettings().catch(() => undefined);
   }, []);
 
   useEffect(() => {
@@ -59,14 +91,21 @@ export function App() {
     const item = await apiPost<Workflow>("/api/workflows", {
       kind: "contest",
       preset,
-      title,
+      title: title.trim() || "New modeling workflow",
       problem_text: problemText,
       requirements,
       language: "zh",
       coding_tool: "python"
     });
     setSelectedId(item.id);
+    setProblemText("");
     await refresh();
+  }
+
+  async function saveSettings() {
+    setError("");
+    await apiPost<Settings>("/api/settings", settings);
+    await loadSettings();
   }
 
   async function startWorkflow() {
@@ -81,6 +120,42 @@ export function App() {
     await refresh();
   }
 
+  async function compileWorkflow() {
+    if (!selected) return;
+    const result = await apiPost<{ ok: boolean; log: string; pdf_path: string }>(`/api/workflows/${selected.id}/compile`);
+    setPreview({ id: "compile", filename: result.ok ? "Compile succeeded" : "Compile failed", text: result.log });
+    await refreshDetails(selected.id);
+  }
+
+  async function exportWorkflow() {
+    if (!selected) return;
+    await apiPost<Artifact>(`/api/workflows/${selected.id}/export`);
+    await refreshDetails(selected.id);
+  }
+
+  async function uploadFile(event: ChangeEvent<HTMLInputElement>) {
+    if (!selected || !event.target.files?.[0]) return;
+    const body = new FormData();
+    body.append("file", event.target.files[0]);
+    await apiPostForm<Upload>(`/api/workflows/${selected.id}/uploads`, body);
+    event.target.value = "";
+    await refreshDetails(selected.id);
+  }
+
+  async function previewArtifact(artifact: Artifact) {
+    try {
+      const item = await apiGet<TextPreview>(`/api/artifacts/${artifact.id}/text`);
+      setPreview({ ...item, filename: artifact.title });
+    } catch {
+      window.open(`${API_BASE}/api/artifacts/${artifact.id}/file`, "_blank");
+    }
+  }
+
+  async function previewUpload(upload: Upload) {
+    const item = await apiGet<TextPreview>(`/api/uploads/${upload.id}/text`);
+    setPreview(item);
+  }
+
   return (
     <div className="app">
       <aside className="sidebar">
@@ -88,9 +163,47 @@ export function App() {
           <div className="mark">M</div>
           <div>
             <h1>MathModel-Agent</h1>
-            <p>Desktop workflow agent</p>
+            <p>Contest and research workflow agent</p>
           </div>
         </div>
+
+        <section className="panel compact">
+          <h2>Model Settings</h2>
+          <label>
+            Base URL
+            <input
+              value={settings.model_base_url ?? ""}
+              placeholder="https://api.openai.com/v1"
+              onChange={(e) => setSettings({ ...settings, model_base_url: e.target.value })}
+            />
+          </label>
+          <label>
+            Model
+            <input
+              value={settings.model_name ?? ""}
+              placeholder="gpt-4.1 / claude compatible model"
+              onChange={(e) => setSettings({ ...settings, model_name: e.target.value })}
+            />
+          </label>
+          <label>
+            API Key
+            <input
+              type="password"
+              value={settings.model_api_key ?? ""}
+              placeholder="Leave blank to keep fallback mode"
+              onChange={(e) => setSettings({ ...settings, model_api_key: e.target.value })}
+            />
+          </label>
+          <label>
+            TeX bin path
+            <input
+              value={settings.texlive_bin ?? ""}
+              placeholder="Optional path containing xelatex.exe"
+              onChange={(e) => setSettings({ ...settings, texlive_bin: e.target.value })}
+            />
+          </label>
+          <button onClick={saveSettings}>Save Settings</button>
+        </section>
 
         <section className="panel compact">
           <h2>New Workflow</h2>
@@ -144,12 +257,24 @@ export function App() {
           <>
             <section className="header">
               <div>
-                <p className="eyebrow">{selected.kind} / {selected.preset}</p>
+                <p className="eyebrow">
+                  {selected.kind} / {selected.preset}
+                </p>
                 <h2>{selected.title}</h2>
                 <p className="workspace">{selected.workspace}</p>
               </div>
               <div className="actions">
+                <label className="upload-button">
+                  Upload material
+                  <input
+                    type="file"
+                    accept=".pdf,.docx,.txt,.md,.tex,.csv,.xlsx,.xlsm,.py,.m,.json"
+                    onChange={uploadFile}
+                  />
+                </label>
                 <button onClick={startWorkflow}>Start</button>
+                <button onClick={compileWorkflow}>Compile</button>
+                <button onClick={exportWorkflow}>Export</button>
                 <button onClick={approveWorkflow} disabled={selected.status !== "waiting"}>
                   Approve checkpoint
                 </button>
@@ -165,7 +290,10 @@ export function App() {
                       <span>{index + 1}</span>
                       <div>
                         <strong>{step.title}</strong>
-                        <small>{step.status}{step.checkpoint ? " / checkpoint" : ""}</small>
+                        <small>
+                          {step.status}
+                          {step.checkpoint ? " / checkpoint" : ""}
+                        </small>
                       </div>
                     </div>
                   ))}
@@ -185,21 +313,48 @@ export function App() {
               </div>
             </section>
 
-            <section className="panel artifacts">
-              <h3>Artifacts</h3>
-              {artifacts.length === 0 ? (
-                <p className="muted">No artifacts yet.</p>
-              ) : (
-                <div className="artifact-list">
-                  {artifacts.map((artifact) => (
-                    <a key={artifact.id} href={`${API_BASE}/api/artifacts/${artifact.id}/file`} target="_blank">
-                      <strong>{artifact.title}</strong>
-                      <span>{artifact.kind}</span>
-                      <small>{artifact.path}</small>
-                    </a>
-                  ))}
-                </div>
-              )}
+            <section className="grid lower">
+              <section className="panel artifacts">
+                <h3>Input Materials</h3>
+                {uploads.length === 0 ? (
+                  <p className="muted">No uploaded files yet.</p>
+                ) : (
+                  <div className="artifact-list">
+                    {uploads.map((upload) => (
+                      <button key={upload.id} onClick={() => previewUpload(upload)}>
+                        <strong>{upload.filename}</strong>
+                        <span>{upload.extracted_chars.toLocaleString()} extracted chars</span>
+                        <small>{upload.path}</small>
+                      </button>
+                    ))}
+                  </div>
+                )}
+              </section>
+
+              <section className="panel artifacts">
+                <h3>Artifacts</h3>
+                {artifacts.length === 0 ? (
+                  <p className="muted">No artifacts yet.</p>
+                ) : (
+                  <div className="artifact-list">
+                    {artifacts.map((artifact) => (
+                      <button key={artifact.id} onClick={() => previewArtifact(artifact)}>
+                        <strong>{artifact.title}</strong>
+                        <span>{artifact.kind}</span>
+                        <small>{artifact.path}</small>
+                      </button>
+                    ))}
+                  </div>
+                )}
+              </section>
+            </section>
+
+            <section className="panel preview">
+              <div className="preview-head">
+                <h3>{preview?.filename ?? "Preview"}</h3>
+                {preview && <button onClick={() => setPreview(null)}>Clear</button>}
+              </div>
+              {preview ? <pre>{preview.text}</pre> : <p className="muted">Select an input or artifact to preview text.</p>}
             </section>
           </>
         ) : (
@@ -211,4 +366,3 @@ export function App() {
     </div>
   );
 }
-

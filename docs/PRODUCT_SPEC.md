@@ -52,6 +52,11 @@ Supported presets:
 - Artifacts appear in the workspace and UI.
 - API settings can be saved.
 - The product still demos without an API key by using fallback drafts.
+- Problem PDFs, DOCX files, spreadsheets, CSV files, and text files can be uploaded.
+- Uploaded text is added to the workflow context.
+- Text artifacts can be previewed in the app.
+- A workflow workspace can be exported as a zip archive.
+- Generated LaTeX can be compiled when a TeX runtime is configured.
 
 ## Non-goals for the first MVP
 
@@ -59,4 +64,3 @@ Supported presets:
 - copying third-party UI/assets/skills
 - fully bundled runtime installer
 - multi-user cloud sync
-

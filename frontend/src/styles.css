@@ -28,6 +28,11 @@ button {
   cursor: pointer;
 }
 
+button,
+.upload-button {
+  user-select: none;
+}
+
 button:disabled {
   opacity: 0.55;
   cursor: default;
@@ -168,7 +173,26 @@ textarea {
 
 .actions {
   display: flex;
+  flex-wrap: wrap;
   gap: 8px;
+}
+
+.upload-button {
+  border: 1px solid #bec8bf;
+  background: #fff;
+  color: #17201b;
+  border-radius: 6px;
+  padding: 9px 12px;
+  cursor: pointer;
+  position: relative;
+  overflow: hidden;
+}
+
+.upload-button input {
+  position: absolute;
+  inset: 0;
+  opacity: 0;
+  cursor: pointer;
 }
 
 .grid {
@@ -176,6 +200,10 @@ textarea {
   grid-template-columns: 420px 1fr;
   gap: 16px;
   margin-bottom: 16px;
+}
+
+.grid.lower {
+  grid-template-columns: 1fr 1fr;
 }
 
 .steps {
@@ -254,7 +282,8 @@ textarea {
   gap: 8px;
 }
 
-.artifact-list a {
+.artifact-list a,
+.artifact-list button {
   display: grid;
   gap: 3px;
   padding: 10px;
@@ -262,11 +291,45 @@ textarea {
   border-radius: 8px;
   text-decoration: none;
   color: inherit;
+  text-align: left;
+  background: #fff;
+}
+
+.artifact-list a:hover,
+.artifact-list button:hover {
+  border-color: #1f6f5b;
+  background: #f5fbf8;
 }
 
 .artifact-list span,
 .artifact-list small {
   color: #627067;
+}
+
+.preview {
+  margin-top: 16px;
+}
+
+.preview-head {
+  display: flex;
+  justify-content: space-between;
+  gap: 12px;
+  align-items: center;
+  margin-bottom: 12px;
+}
+
+.preview pre {
+  margin: 0;
+  max-height: 420px;
+  overflow: auto;
+  white-space: pre-wrap;
+  word-break: break-word;
+  background: #f7f8f6;
+  border: 1px solid #e1e6e1;
+  border-radius: 8px;
+  padding: 12px;
+  font-size: 13px;
+  line-height: 1.55;
 }
 
 .error {
@@ -283,3 +346,13 @@ textarea {
   min-height: 60vh;
 }
 
+@media (max-width: 1180px) {
+  .app {
+    grid-template-columns: 320px 1fr;
+  }
+
+  .grid,
+  .grid.lower {
+    grid-template-columns: 1fr;
+  }
+}

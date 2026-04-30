@@ -2,7 +2,7 @@ from __future__ import annotations
 
 from pathlib import Path
 
-from fastapi import FastAPI, HTTPException
+from fastapi import FastAPI, HTTPException, UploadFile
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import FileResponse
 
@@ -10,7 +10,9 @@ from . import db
 from .config import APP_NAME, APP_VERSION, WORKSPACES_DIR, ensure_runtime_dirs
 from .models import SettingsUpdate, StepApproval, WorkflowCreate
 from .services.artifacts import safe_workspace_name
+from .services.file_extractors import extract_text, sanitize_filename
 from .services.workflow_engine import engine
+from .services.workspace_ops import compile_latex, zip_workspace
 from .workflows.templates import build_steps
 
 app = FastAPI(title=APP_NAME, version=APP_VERSION)
@@ -100,13 +102,109 @@ async def list_artifacts(workflow_id: str) -> list[dict]:
     return db.list_artifacts(workflow_id)
 
 
+@app.post("/api/workflows/{workflow_id}/uploads")
+async def upload_workflow_file(workflow_id: str, file: UploadFile) -> dict:
+    try:
+        workflow = db.get_workflow(workflow_id)
+    except KeyError:
+        raise HTTPException(status_code=404, detail="workflow not found")
+
+    filename = sanitize_filename(file.filename or "upload")
+    upload_dir = Path(workflow["workspace"]) / "input"
+    upload_dir.mkdir(parents=True, exist_ok=True)
+    destination = upload_dir / filename
+    suffix = 1
+    base_destination = destination
+    while destination.exists():
+        suffix += 1
+        destination = base_destination.with_name(f"{base_destination.stem}-{suffix}{base_destination.suffix}")
+
+    content = await file.read()
+    destination.write_bytes(content)
+    extracted = extract_text(destination)
+    upload = db.add_upload(
+        workflow_id,
+        destination.name,
+        destination,
+        file.content_type or "application/octet-stream",
+        extracted,
+    )
+    db.append_workflow_problem_text(workflow_id, f"# {destination.name}\n\n{extracted}")
+    db.add_event(workflow_id, f"Uploaded and extracted {destination.name} ({len(extracted)} chars).")
+    return upload
+
+
+@app.get("/api/workflows/{workflow_id}/uploads")
+async def list_workflow_uploads(workflow_id: str) -> list[dict]:
+    return db.list_uploads(workflow_id)
+
+
+@app.get("/api/uploads/{upload_id}/text")
+async def upload_text(upload_id: str) -> dict[str, str]:
+    try:
+        upload = db.get_upload(upload_id)
+    except KeyError:
+        raise HTTPException(status_code=404, detail="upload not found")
+    return {
+        "id": upload["id"],
+        "filename": upload["filename"],
+        "text": upload["extracted_text"],
+    }
+
+
 @app.get("/api/artifacts/{artifact_id}/file")
 async def artifact_file(artifact_id: str):
-    for workflow in db.list_workflows():
-        for artifact in db.list_artifacts(workflow["id"]):
-            if artifact["id"] == artifact_id:
-                path = Path(artifact["path"])
-                if path.exists():
-                    return FileResponse(path)
+    try:
+        artifact = db.get_artifact(artifact_id)
+    except KeyError:
+        raise HTTPException(status_code=404, detail="artifact not found")
+    path = Path(artifact["path"])
+    if path.exists():
+        return FileResponse(path)
     raise HTTPException(status_code=404, detail="artifact not found")
 
+
+@app.get("/api/artifacts/{artifact_id}/text")
+async def artifact_text(artifact_id: str) -> dict[str, str]:
+    try:
+        artifact = db.get_artifact(artifact_id)
+    except KeyError:
+        raise HTTPException(status_code=404, detail="artifact not found")
+    path = Path(artifact["path"])
+    if not path.exists():
+        raise HTTPException(status_code=404, detail="artifact file not found")
+    if path.suffix.lower() not in {".md", ".txt", ".tex", ".py", ".json", ".csv", ".m"}:
+        raise HTTPException(status_code=400, detail="artifact is not text-previewable")
+    return {"id": artifact_id, "text": path.read_text(encoding="utf-8", errors="replace")}
+
+
+@app.post("/api/workflows/{workflow_id}/compile")
+async def compile_workflow(workflow_id: str) -> dict:
+    try:
+        workflow = db.get_workflow(workflow_id)
+    except KeyError:
+        raise HTTPException(status_code=404, detail="workflow not found")
+
+    workspace = Path(workflow["workspace"])
+    settings = db.get_settings()
+    ok, log, pdf_path = compile_latex(workspace, settings.get("texlive_bin"))
+    log_path = workspace / "paper" / "compile.log"
+    log_path.parent.mkdir(parents=True, exist_ok=True)
+    log_path.write_text(log, encoding="utf-8", errors="replace")
+    db.add_artifact(workflow_id, "compile", "LaTeX compile log", log_path, "log")
+    if pdf_path:
+        db.add_artifact(workflow_id, "compile", "Compiled PDF", pdf_path, "pdf")
+    db.add_event(workflow_id, "LaTeX compilation succeeded." if ok else "LaTeX compilation failed.", "info" if ok else "error")
+    return {"ok": ok, "log": log[-8000:], "pdf_path": str(pdf_path) if pdf_path else ""}
+
+
+@app.post("/api/workflows/{workflow_id}/export")
+async def export_workflow(workflow_id: str) -> dict:
+    try:
+        workflow = db.get_workflow(workflow_id)
+    except KeyError:
+        raise HTTPException(status_code=404, detail="workflow not found")
+    archive = zip_workspace(Path(workflow["workspace"]))
+    artifact = db.add_artifact(workflow_id, "export", "Workspace export", archive, "zip")
+    db.add_event(workflow_id, f"Workspace exported: {archive}")
+    return artifact

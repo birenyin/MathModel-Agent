@@ -22,6 +22,15 @@ export async function apiPost<T>(path: string, body: unknown = {}): Promise<T> {
   return response.json();
 }
 
+export async function apiPostForm<T>(path: string, body: FormData): Promise<T> {
+  const response = await fetch(`${API_BASE}${path}`, {
+    method: "POST",
+    body
+  });
+  if (!response.ok) throw new Error(await response.text());
+  return response.json();
+}
+
 export type Workflow = {
   id: string;
   kind: string;
@@ -56,3 +65,28 @@ export type Artifact = {
   kind: string;
 };
 
+export type Upload = {
+  id: string;
+  workflow_id: string;
+  filename: string;
+  path: string;
+  content_type: string;
+  extracted_chars: number;
+  created_at: string;
+};
+
+export type Settings = {
+  model_base_url?: string;
+  model_name?: string;
+  model_api_key?: string;
+  reviewer_base_url?: string;
+  reviewer_model_name?: string;
+  reviewer_api_key?: string;
+  texlive_bin?: string;
+};
+
+export type TextPreview = {
+  id: string;
+  filename?: string;
+  text: string;
+};

@@ -112,7 +112,7 @@ Coding tool: {workflow['coding_tool']}
 Page limit: {workflow.get('page_limit') or 'not specified'}
 
 Problem text:
-{workflow.get('problem_text') or '(not provided)'}
+{(workflow.get('problem_text') or '(not provided)')[:80_000]}
 
 Requirements:
 {workflow.get('requirements') or '(not provided)'}
@@ -180,4 +180,3 @@ Complete data analysis, validate code outputs, polish figures, and run a final r
 
 
 engine = WorkflowEngine()
-

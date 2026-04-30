@@ -2,6 +2,7 @@ node_modules/
 frontend/dist/
 backend/.venv/
 backend/.data/
+.data/
 *.pyc
 __pycache__/
 .DS_Store
