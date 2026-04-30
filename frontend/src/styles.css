@@ -528,6 +528,13 @@ button.small {
   gap: 12px;
 }
 
+.latex-toolbar {
+  grid-column: 1 / -1;
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+
 .latex-editor {
   min-height: 620px;
 }
@@ -570,6 +577,13 @@ button.small {
 .compile-log {
   grid-column: 1 / -1;
   max-height: 180px;
+}
+
+.compile-summary {
+  grid-column: 1 / -1;
+  max-height: 150px;
+  border-color: #d7c58d;
+  background: #fff9e6;
 }
 
 .code-workbench {

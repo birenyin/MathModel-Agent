@@ -95,6 +95,7 @@ export function App() {
     [workflows, selectedId]
   );
   const groupedWorkspaceFiles = useMemo(() => groupWorkspaceFiles(workspaceFiles), [workspaceFiles]);
+  const latexLogSummary = useMemo(() => summarizeLatexLog(compileLog), [compileLog]);
 
   async function refresh() {
     const list = await apiGet<Workflow[]>("/api/workflows");
@@ -423,6 +424,17 @@ export function App() {
     await refreshDetails(selected.id);
   }
 
+  function insertLatexTemplate(kind: "structure" | "figure" | "table") {
+    const block = latexTemplates[kind];
+    setEditorText((content) => insertBeforeEndDocument(content, block));
+    setEditorDirty(true);
+  }
+
+  async function explainCompileLog() {
+    if (!compileLog) return;
+    await sendAgentMessage(`请解释这个 LaTeX 编译日志，并告诉我最优先修哪三处：\n\n${compileLog.slice(-6000)}`);
+  }
+
   function clearPreview() {
     setPreview(null);
     setEmbeddedPreview(null);
@@ -700,6 +712,22 @@ export function App() {
               </div>
               {activeFile?.suffix === ".tex" ? (
                 <div className="latex-workbench">
+                  <div className="latex-toolbar">
+                    <button className="small" onClick={() => insertLatexTemplate("structure")}>
+                      Insert Sections
+                    </button>
+                    <button className="small" onClick={() => insertLatexTemplate("figure")}>
+                      Figure
+                    </button>
+                    <button className="small" onClick={() => insertLatexTemplate("table")}>
+                      Table
+                    </button>
+                    {compileLog && (
+                      <button className="small" onClick={explainCompileLog}>
+                        Explain Log
+                      </button>
+                    )}
+                  </div>
                   <textarea
                     className="editor latex-editor"
                     value={editorText}
@@ -719,6 +747,7 @@ export function App() {
                       </div>
                     )}
                   </div>
+                  {latexLogSummary && <pre className="compile-summary">{latexLogSummary}</pre>}
                   {compileLog && <pre className="compile-log">{compileLog}</pre>}
                 </div>
               ) : activeFile?.suffix === ".py" ? (
@@ -890,4 +919,68 @@ function formatRunResult(path: string, result: CodeRunResult): string {
     "------",
     result.stderr || "(empty)"
   ].join("\n");
+}
+
+const latexTemplates = {
+  structure: String.raw`
+\section{Problem Restatement}
+
+\section{Assumptions}
+
+\section{Symbol Description}
+
+\section{Model Construction}
+
+\section{Solution and Results}
+
+\section{Sensitivity Analysis}
+
+\section{Strengths and Weaknesses}
+
+\section{Conclusion}
+`,
+  figure: String.raw`
+\begin{figure}[htbp]
+  \centering
+  \includegraphics[width=0.82\textwidth]{figures/example.png}
+  \caption{Replace with a claim-driven figure caption.}
+  \label{fig:example}
+\end{figure}
+`,
+  table: String.raw`
+\begin{table}[htbp]
+  \centering
+  \caption{Replace with a result-focused table caption.}
+  \label{tab:example}
+  \begin{tabular}{lcc}
+    \toprule
+    Item & Metric A & Metric B \\
+    \midrule
+    Baseline & -- & -- \\
+    Proposed & -- & -- \\
+    \bottomrule
+  \end{tabular}
+\end{table}
+`
+};
+
+function insertBeforeEndDocument(content: string, block: string): string {
+  const marker = "\\end{document}";
+  const cleanBlock = block.trim();
+  const index = content.lastIndexOf(marker);
+  if (index === -1) {
+    return `${content.trimEnd()}\n\n${cleanBlock}\n`;
+  }
+  return `${content.slice(0, index).trimEnd()}\n\n${cleanBlock}\n\n${content.slice(index)}`;
+}
+
+function summarizeLatexLog(log: string): string {
+  if (!log.trim()) return "";
+  const lines = log.split(/\r?\n/);
+  const important = lines.filter((line) => {
+    const item = line.trim();
+    return item.startsWith("!") || item.includes("Error") || item.includes("Warning") || item.includes("Undefined");
+  });
+  if (important.length === 0) return "Compile log summary: no obvious LaTeX error lines found.";
+  return ["Compile log summary:", ...important.slice(0, 8)].join("\n");
 }

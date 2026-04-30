@@ -40,6 +40,8 @@ Current implemented actions:
 - browse and edit text files inside the workflow workspace
 - preview workspace PDF files inside the app
 - edit LaTeX files with an adjacent compiled PDF preview
+- insert contest-paper sections, figure blocks, and table blocks in the LaTeX editor
+- summarize LaTeX compile logs and ask the Agent to explain them
 - run Python files from the workspace and save run logs as artifacts
 - test model-provider settings from the UI
 - chat with a right-side workflow-aware Agent dock

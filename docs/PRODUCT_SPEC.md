@@ -58,6 +58,8 @@ Supported presets:
 - Workspace text files can be browsed, edited, and saved in the app.
 - Workspace PDF files can be previewed in-app.
 - LaTeX files can be edited alongside a compiled PDF preview.
+- The LaTeX workbench provides paper-section, figure, and table insertion helpers.
+- Compile logs are summarized and can be sent to Agent for explanation.
 - Workspace Python files can be run from the editor, with stdout/stderr captured.
 - Model-provider settings can be tested before starting long workflows.
 - A right-side Agent dock can answer questions using current workflow, files, artifacts, uploads, events, and active file context.
