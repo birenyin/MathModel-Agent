@@ -47,6 +47,7 @@ Current implemented actions:
 - generate reviewer reports using a dedicated reviewer model or local fallback checklist
 - preview CSV/XLSX/XLSM files as tables inside the workbench
 - test model-provider settings from the UI
+- apply a Hongmacc OpenAI-compatible provider preset and load available models from `/models`
 - chat with a right-side workflow-aware Agent dock
 - trigger suggested Agent actions such as running Python, compiling LaTeX, and opening PDFs
 - browse workspace files grouped by paper, code, figures, tables, logs, and inputs

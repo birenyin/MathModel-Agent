@@ -137,6 +137,12 @@ export type ModelTestResult = {
   message: string;
 };
 
+export type ModelListResult = {
+  ok: boolean;
+  models: string[];
+  message: string;
+};
+
 export type ReviewResult = {
   ok: boolean;
   mode: string;

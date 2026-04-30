@@ -35,6 +35,28 @@ class LLMClient:
             data = response.json()
         return data["choices"][0]["message"]["content"]
 
+    async def list_models(self) -> list[str]:
+        if httpx is None:
+            raise RuntimeError("httpx is not installed")
+        if not self.base_url or not self.api_key:
+            raise ValueError("base URL and API key are required")
+
+        url = f"{self.base_url}/models"
+        headers = {"Authorization": f"Bearer {self.api_key}"}
+        async with httpx.AsyncClient(timeout=30) as client:
+            response = await client.get(url, headers=headers)
+            response.raise_for_status()
+            data = response.json()
+
+        items = data.get("data", data if isinstance(data, list) else [])
+        models: list[str] = []
+        for item in items:
+            if isinstance(item, str):
+                models.append(item)
+            elif isinstance(item, dict) and item.get("id"):
+                models.append(str(item["id"]))
+        return sorted(set(models))
+
     def _fallback(self, prompt: str) -> str:
         excerpt = prompt.strip().replace("\r\n", "\n")[:1200]
         return (

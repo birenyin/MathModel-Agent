@@ -65,6 +65,7 @@ Supported presets:
 - Reviewer reports can be generated from workflow files, artifacts, uploads, and paper text using a dedicated reviewer model or fallback checklist.
 - CSV/XLSX/XLSM workspace files can be previewed as tables in the app.
 - Model-provider settings can be tested before starting long workflows.
+- Hongmacc/OpenAI-compatible providers can be configured with a preset base URL and model discovery.
 - A right-side Agent dock can answer questions using current workflow, files, artifacts, uploads, events, and active file context.
 - The Agent can suggest local workbench actions such as running Python, compiling LaTeX, opening PDFs, and reviewing next steps.
 - Workspace files are grouped by functional type, with shortcuts for main LaTeX, latest PDF, and latest log.

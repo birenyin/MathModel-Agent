@@ -6,6 +6,7 @@ import {
   Artifact,
   CodeRunResult,
   EventItem,
+  ModelListResult,
   ModelTestResult,
   ReviewResult,
   Settings,
@@ -75,6 +76,10 @@ export function App() {
   const [compileLog, setCompileLog] = useState("");
   const [runLog, setRunLog] = useState("");
   const [modelTest, setModelTest] = useState<ModelTestResult | null>(null);
+  const [modelOptions, setModelOptions] = useState<string[]>([]);
+  const [modelListMessage, setModelListMessage] = useState("");
+  const [modelListOk, setModelListOk] = useState(true);
+  const [modelListBusy, setModelListBusy] = useState(false);
   const [activeFile, setActiveFile] = useState<WorkspaceFile | null>(null);
   const [editorText, setEditorText] = useState("");
   const [editorDirty, setEditorDirty] = useState(false);
@@ -181,6 +186,32 @@ export function App() {
     setError("");
     const result = await apiPost<ModelTestResult>("/api/settings/test", settings);
     setModelTest(result);
+  }
+
+  function useHongmaccPreset() {
+    setSettings({
+      ...settings,
+      model_base_url: "https://hongmacc.com/v1",
+      reviewer_base_url: settings.reviewer_base_url || "https://hongmacc.com/v1"
+    });
+    setModelListMessage("Hongmacc OpenAI-compatible base URL is ready. Paste your API key, then load models.");
+    setModelListOk(true);
+  }
+
+  async function loadModelOptions() {
+    setError("");
+    setModelListBusy(true);
+    try {
+      const result = await apiPost<ModelListResult>("/api/settings/models", settings);
+      setModelOptions(result.models);
+      setModelListMessage(result.message);
+      setModelListOk(result.ok);
+      if (result.models.length > 0 && !settings.model_name) {
+        setSettings({ ...settings, model_name: result.models[0] });
+      }
+    } finally {
+      setModelListBusy(false);
+    }
   }
 
   async function startWorkflow() {
@@ -515,6 +546,17 @@ export function App() {
 
         <section className="panel compact">
           <h2>Model Settings</h2>
+          <div className="button-row">
+            <button onClick={useHongmaccPreset}>Use Hongmacc</button>
+            <button onClick={loadModelOptions} disabled={modelListBusy}>
+              {modelListBusy ? "Loading..." : "Load Models"}
+            </button>
+          </div>
+          {modelListMessage && (
+            <div className={modelListOk ? "status-note" : "status-note error-note"}>
+              <span>{modelListMessage}</span>
+            </div>
+          )}
           <label>
             Base URL
             <input
@@ -531,6 +573,18 @@ export function App() {
               onChange={(e) => setSettings({ ...settings, model_name: e.target.value })}
             />
           </label>
+          {modelOptions.length > 0 && (
+            <label>
+              Available Models
+              <select value={settings.model_name ?? ""} onChange={(e) => setSettings({ ...settings, model_name: e.target.value })}>
+                {modelOptions.map((model) => (
+                  <option key={model} value={model}>
+                    {model}
+                  </option>
+                ))}
+              </select>
+            </label>
+          )}
           <label>
             API Key
             <input

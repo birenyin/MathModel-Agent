@@ -82,6 +82,16 @@ async def test_settings(payload: SettingsUpdate) -> dict[str, str | bool]:
     return {"ok": True, "mode": mode, "message": text[:1200]}
 
 
+@app.post("/api/settings/models")
+async def list_model_options(payload: SettingsUpdate) -> dict:
+    settings = _merge_settings_for_test(payload)
+    try:
+        models = await LLMClient(settings).list_models()
+    except Exception as exc:
+        return {"ok": False, "models": [], "message": str(exc)}
+    return {"ok": True, "models": models, "message": f"Loaded {len(models)} models."}
+
+
 @app.get("/api/workflows")
 async def list_workflows() -> list[dict]:
     return db.list_workflows()

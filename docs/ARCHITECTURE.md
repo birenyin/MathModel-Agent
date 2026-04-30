@@ -33,7 +33,7 @@ flowchart LR
 
 - `app.main`: API surface and startup.
 - `app.db`: SQLite schema and state helpers.
-- `app.services.llm`: OpenAI-compatible provider plus local fallback.
+- `app.services.llm`: OpenAI-compatible provider, model discovery, and local fallback.
 - `app.services.agent_chat`: workflow-aware Agent prompt assembly and local fallback replies.
 - `app.services.reviewer`: contest-paper review prompt assembly and fallback reviewer checklist.
 - `app.services.table_preview`: safe CSV/XLSX table preview for workspace files.
