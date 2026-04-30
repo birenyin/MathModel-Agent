@@ -60,6 +60,8 @@ Supported presets:
 - LaTeX files can be edited alongside a compiled PDF preview.
 - Workspace Python files can be run from the editor, with stdout/stderr captured.
 - Model-provider settings can be tested before starting long workflows.
+- A right-side Agent dock can answer questions using current workflow, files, artifacts, uploads, events, and active file context.
+- The Agent can suggest local workbench actions such as running Python, compiling LaTeX, opening PDFs, and reviewing next steps.
 - A user can rerun a selected workflow step without recreating the workflow.
 - A workflow workspace can be exported as a zip archive.
 - Generated LaTeX can be compiled when a TeX runtime is configured.

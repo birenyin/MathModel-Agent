@@ -51,7 +51,7 @@ button.primary {
 
 .app {
   display: grid;
-  grid-template-columns: 360px 1fr;
+  grid-template-columns: 340px minmax(0, 1fr) 360px;
   min-height: 100vh;
 }
 
@@ -206,6 +206,89 @@ textarea {
 .main {
   padding: 22px;
   overflow: auto;
+}
+
+.agent-dock {
+  border-left: 1px solid #dce2dc;
+  background: #f2f4f1;
+  padding: 18px;
+  display: grid;
+  grid-template-rows: auto 1fr auto;
+  gap: 12px;
+  max-height: 100vh;
+}
+
+.agent-head {
+  display: grid;
+  gap: 8px;
+  border-bottom: 1px solid #dce2dc;
+  padding-bottom: 12px;
+}
+
+.agent-head h2 {
+  font-size: 16px;
+}
+
+.agent-head p,
+.agent-head span {
+  color: #627067;
+  font-size: 12px;
+  word-break: break-word;
+}
+
+.agent-messages {
+  overflow: auto;
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+
+.agent-message {
+  border: 1px solid #dfe5df;
+  border-radius: 8px;
+  padding: 10px;
+  background: #fff;
+}
+
+.agent-message.user {
+  background: #e7f3ef;
+  border-color: #bfd8cf;
+}
+
+.agent-meta {
+  display: flex;
+  justify-content: space-between;
+  gap: 8px;
+  margin-bottom: 6px;
+  font-size: 12px;
+}
+
+.agent-meta span {
+  color: #627067;
+}
+
+.agent-message p {
+  white-space: pre-wrap;
+  word-break: break-word;
+  font-size: 13px;
+  line-height: 1.5;
+}
+
+.agent-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+  margin-top: 10px;
+}
+
+.agent-compose {
+  display: grid;
+  gap: 8px;
+}
+
+.agent-compose textarea {
+  min-height: 78px;
+  resize: vertical;
 }
 
 .header {
@@ -481,6 +564,11 @@ button.small {
 @media (max-width: 1180px) {
   .app {
     grid-template-columns: 320px 1fr;
+  }
+
+  .agent-dock {
+    grid-column: 1 / -1;
+    max-height: none;
   }
 
   .grid,

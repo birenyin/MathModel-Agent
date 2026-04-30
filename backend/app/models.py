@@ -40,6 +40,12 @@ class CodeRunRequest(BaseModel):
     timeout_seconds: int = Field(default=30, ge=1, le=300)
 
 
+class AgentChatRequest(BaseModel):
+    message: str = Field(min_length=1, max_length=6000)
+    active_file_path: str = ""
+    active_file_content: str = ""
+
+
 class WorkflowResponse(BaseModel):
     id: str
     kind: str

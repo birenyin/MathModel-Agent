@@ -9,8 +9,9 @@ from fastapi.responses import FileResponse
 
 from . import db
 from .config import APP_NAME, APP_VERSION, WORKSPACES_DIR, ensure_runtime_dirs
-from .models import CodeRunRequest, SettingsUpdate, StepApproval, WorkflowCreate, WorkspaceFileUpdate
+from .models import AgentChatRequest, CodeRunRequest, SettingsUpdate, StepApproval, WorkflowCreate, WorkspaceFileUpdate
 from .services.artifacts import safe_workspace_name
+from .services.agent_chat import answer_agent_chat
 from .services.code_runner import render_run_log, run_python_file
 from .services.file_extractors import extract_text, sanitize_filename
 from .services.llm import LLMClient
@@ -145,6 +146,33 @@ async def list_events(workflow_id: str) -> list[dict]:
 @app.get("/api/workflows/{workflow_id}/artifacts")
 async def list_artifacts(workflow_id: str) -> list[dict]:
     return db.list_artifacts(workflow_id)
+
+
+@app.post("/api/workflows/{workflow_id}/agent/chat")
+async def agent_chat(workflow_id: str, payload: AgentChatRequest) -> dict:
+    try:
+        workflow = db.get_workflow(workflow_id)
+    except KeyError:
+        raise HTTPException(status_code=404, detail="workflow not found")
+
+    files = list_workspace_files(Path(workflow["workspace"]))
+    artifacts = db.list_artifacts(workflow_id)
+    uploads = db.list_uploads(workflow_id)
+    events = db.list_events(workflow_id)
+    try:
+        return await answer_agent_chat(
+            db.get_settings(),
+            workflow,
+            files,
+            artifacts,
+            uploads,
+            events,
+            payload.message,
+            payload.active_file_path,
+            payload.active_file_content,
+        )
+    except Exception as exc:
+        raise HTTPException(status_code=500, detail=str(exc))
 
 
 @app.get("/api/workflows/{workflow_id}/files")

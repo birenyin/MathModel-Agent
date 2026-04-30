@@ -34,6 +34,7 @@ flowchart LR
 - `app.main`: API surface and startup.
 - `app.db`: SQLite schema and state helpers.
 - `app.services.llm`: OpenAI-compatible provider plus local fallback.
+- `app.services.agent_chat`: workflow-aware Agent prompt assembly and local fallback replies.
 - `app.services.workflow_engine`: staged workflow runner.
 - `app.services.skills`: Markdown skill discovery, selection, and prompt injection.
 - `app.services.workspace_files`: safe workspace file browsing and text editing.

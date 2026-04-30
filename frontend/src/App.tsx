@@ -1,6 +1,8 @@
 import { ChangeEvent, useEffect, useMemo, useState } from "react";
 import {
   API_BASE,
+  AgentChatResponse,
+  AgentSuggestedAction,
   Artifact,
   CodeRunResult,
   EventItem,
@@ -48,6 +50,14 @@ type EmbeddedPreview = {
   path?: string;
 };
 
+type AgentMessage = {
+  id: string;
+  role: "user" | "assistant";
+  content: string;
+  mode?: string;
+  suggested_actions?: AgentSuggestedAction[];
+};
+
 export function App() {
   const [workflows, setWorkflows] = useState<Workflow[]>([]);
   const [selectedId, setSelectedId] = useState<string>("");
@@ -70,6 +80,15 @@ export function App() {
   const [problemText, setProblemText] = useState("");
   const [requirements, setRequirements] = useState("");
   const [error, setError] = useState("");
+  const [agentInput, setAgentInput] = useState("");
+  const [agentBusy, setAgentBusy] = useState(false);
+  const [agentMessages, setAgentMessages] = useState<AgentMessage[]>([
+    {
+      id: "welcome",
+      role: "assistant",
+      content: "我会根据当前工作流、打开的文件、运行日志和编译结果给建议。可以直接问：下一步做什么、哪里报错、论文怎么改。"
+    }
+  ]);
 
   const selected = useMemo(
     () => workflows.find((item) => item.id === selectedId) ?? workflows[0],
@@ -297,6 +316,71 @@ export function App() {
     );
     setRunLog(formatRunResult(activeFile.path, result));
     await refreshDetails(selected.id);
+  }
+
+  async function sendAgentMessage(message = agentInput) {
+    if (!selected) return;
+    const text = message.trim();
+    if (!text || agentBusy) return;
+    setAgentInput("");
+    setAgentBusy(true);
+    setAgentMessages((items) => [
+      ...items,
+      { id: crypto.randomUUID(), role: "user", content: text }
+    ]);
+    try {
+      const response = await apiPost<AgentChatResponse>(`/api/workflows/${selected.id}/agent/chat`, {
+        message: text,
+        active_file_path: activeFile?.path ?? "",
+        active_file_content: activeFile ? editorText : ""
+      });
+      setAgentMessages((items) => [
+        ...items,
+        {
+          id: crypto.randomUUID(),
+          role: "assistant",
+          content: response.message,
+          mode: response.mode,
+          suggested_actions: response.suggested_actions
+        }
+      ]);
+    } catch (err) {
+      setError(String(err));
+    } finally {
+      setAgentBusy(false);
+    }
+  }
+
+  async function handleAgentAction(actionId: string) {
+    if (!selected) return;
+    if (actionId === "run_python") {
+      if (activeFile?.suffix === ".py") {
+        await runActivePython();
+        await sendAgentMessage("我刚运行了当前 Python 文件，请根据运行输出告诉我下一步怎么改。");
+      } else {
+        await sendAgentMessage("我想运行 Python，请告诉我应该先打开哪个 .py 文件。");
+      }
+      return;
+    }
+    if (actionId === "compile_latex") {
+      if (activeFile?.suffix === ".tex") {
+        await compileLatexPreview();
+      } else {
+        await compileWorkflow();
+      }
+      await sendAgentMessage("我刚编译了 LaTeX，请根据当前工作流告诉我如何处理编译结果。");
+      return;
+    }
+    if (actionId === "open_pdf") {
+      const pdf = [...workspaceFiles].reverse().find((file) => file.suffix === ".pdf");
+      if (pdf) {
+        await openWorkspaceFile(pdf);
+      }
+      return;
+    }
+    if (actionId === "review_next") {
+      await sendAgentMessage("请根据当前工作流状态，列出下一步最应该做的三件事。");
+    }
   }
 
   async function compileLatexPreview() {
@@ -645,6 +729,54 @@ export function App() {
           </section>
         )}
       </main>
+
+      <aside className="agent-dock">
+        <div className="agent-head">
+          <div>
+            <h2>Agent</h2>
+            <p>{selected ? selected.status : "No workflow"}</p>
+          </div>
+          {activeFile && <span>{activeFile.path}</span>}
+        </div>
+        <div className="agent-messages">
+          {agentMessages.map((message) => (
+            <div key={message.id} className={`agent-message ${message.role}`}>
+              <div className="agent-meta">
+                <strong>{message.role === "assistant" ? "Agent" : "You"}</strong>
+                {message.mode && <span>{message.mode}</span>}
+              </div>
+              <p>{message.content}</p>
+              {message.suggested_actions && message.suggested_actions.length > 0 && (
+                <div className="agent-actions">
+                  {message.suggested_actions.map((action) => (
+                    <button key={action.id} className="small" title={action.description} onClick={() => handleAgentAction(action.id)}>
+                      {action.label}
+                    </button>
+                  ))}
+                </div>
+              )}
+            </div>
+          ))}
+          {agentBusy && <div className="agent-message assistant"><p>Thinking...</p></div>}
+        </div>
+        <div className="agent-compose">
+          <textarea
+            value={agentInput}
+            rows={3}
+            placeholder="Ask Agent about the current workflow..."
+            onChange={(event) => setAgentInput(event.target.value)}
+            onKeyDown={(event) => {
+              if (event.key === "Enter" && !event.shiftKey) {
+                event.preventDefault();
+                sendAgentMessage().catch((err) => setError(String(err)));
+              }
+            }}
+          />
+          <button className="primary" onClick={() => sendAgentMessage()} disabled={!selected || agentBusy}>
+            Send
+          </button>
+        </div>
+      </aside>
     </div>
   );
 }

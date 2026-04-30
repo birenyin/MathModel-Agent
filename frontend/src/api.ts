@@ -133,3 +133,16 @@ export type ModelTestResult = {
   mode: string;
   message: string;
 };
+
+export type AgentSuggestedAction = {
+  id: string;
+  label: string;
+  description: string;
+};
+
+export type AgentChatResponse = {
+  role: "assistant";
+  mode: string;
+  message: string;
+  suggested_actions: AgentSuggestedAction[];
+};
