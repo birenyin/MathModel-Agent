@@ -156,3 +156,11 @@ export type AgentChatResponse = {
   message: string;
   suggested_actions: AgentSuggestedAction[];
 };
+
+export type TablePreview = {
+  path: string;
+  columns: string[];
+  rows: string[][];
+  sheet: string;
+  truncated: boolean;
+};

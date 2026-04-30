@@ -10,6 +10,7 @@ import {
   ReviewResult,
   Settings,
   Skill,
+  TablePreview,
   TextPreview,
   Upload,
   Workflow,
@@ -69,6 +70,7 @@ export function App() {
   const [settings, setSettings] = useState<Settings>(defaultSettings);
   const [skills, setSkills] = useState<Skill[]>([]);
   const [preview, setPreview] = useState<TextPreview | null>(null);
+  const [tablePreview, setTablePreview] = useState<TablePreview | null>(null);
   const [embeddedPreview, setEmbeddedPreview] = useState<EmbeddedPreview | null>(null);
   const [compileLog, setCompileLog] = useState("");
   const [runLog, setRunLog] = useState("");
@@ -206,6 +208,7 @@ export function App() {
     const result = await apiPost<CompileResult>(`/api/workflows/${selected.id}/compile`);
     setActiveFile(null);
     setEditorDirty(false);
+    setTablePreview(null);
     setRunLog("");
     setCompileLog(result.log);
     if (result.pdf_rel_path) {
@@ -232,6 +235,7 @@ export function App() {
     const result = await apiPost<ReviewResult>(`/api/workflows/${selected.id}/review`);
     setActiveFile(null);
     setEmbeddedPreview(null);
+    setTablePreview(null);
     setCompileLog("");
     setRunLog("");
     setPreview({ id: result.artifact.id, filename: `Review report (${result.mode})`, text: result.report });
@@ -252,6 +256,7 @@ export function App() {
       setActiveFile(null);
       setEditorDirty(false);
       setPreview(null);
+      setTablePreview(null);
       setCompileLog("");
       setRunLog("");
       setEmbeddedPreview({
@@ -266,6 +271,7 @@ export function App() {
       setActiveFile(null);
       setEditorDirty(false);
       setEmbeddedPreview(null);
+      setTablePreview(null);
       setCompileLog("");
       setRunLog("");
       setPreview({ ...item, filename: artifact.title });
@@ -277,6 +283,7 @@ export function App() {
   async function previewUpload(upload: Upload) {
     const item = await apiGet<TextPreview>(`/api/uploads/${upload.id}/text`);
     setPreview(item);
+    setTablePreview(null);
     setEmbeddedPreview(null);
     setCompileLog("");
     setRunLog("");
@@ -286,11 +293,27 @@ export function App() {
 
   async function openWorkspaceFile(file: WorkspaceFile) {
     if (!selected) return;
+    if (isTableFile(file)) {
+      const item = await apiGet<TablePreview>(
+        `/api/workflows/${selected.id}/files/table?path=${encodeURIComponent(file.path)}`
+      );
+      setTablePreview(item);
+      setActiveFile(null);
+      setEditorDirty(false);
+      setEditorText("");
+      setPreview(null);
+      setCompileLog("");
+      setRunLog("");
+      setEmbeddedPreview(null);
+      return;
+    }
+
     if (file.embeddable && file.suffix === ".pdf") {
       setActiveFile(null);
       setEditorDirty(false);
       setEditorText("");
       setPreview(null);
+      setTablePreview(null);
       setCompileLog("");
       setRunLog("");
       setEmbeddedPreview({ title: file.path, path: file.path, url: workspaceRawUrl(selected.id, file.path) });
@@ -301,6 +324,7 @@ export function App() {
       setPreview({ id: file.path, filename: file.path, text: "This file is not editable text." });
       setActiveFile(null);
       setEditorDirty(false);
+      setTablePreview(null);
       setEmbeddedPreview(file.embeddable ? { title: file.path, path: file.path, url: workspaceRawUrl(selected.id, file.path) } : null);
       setCompileLog("");
       setRunLog("");
@@ -314,6 +338,7 @@ export function App() {
     setEditorText(item.text);
     setEditorDirty(false);
     setPreview(null);
+    setTablePreview(null);
     setCompileLog("");
     setRunLog("");
     setEmbeddedPreview(findCompanionPreview(file, selected.id, workspaceFiles));
@@ -468,6 +493,7 @@ export function App() {
 
   function clearPreview() {
     setPreview(null);
+    setTablePreview(null);
     setEmbeddedPreview(null);
     setCompileLog("");
     setRunLog("");
@@ -754,7 +780,7 @@ export function App() {
 
             <section className="panel preview">
               <div className="preview-head">
-                <h3>{activeFile?.path ?? embeddedPreview?.title ?? preview?.filename ?? "Preview"}</h3>
+                <h3>{activeFile?.path ?? embeddedPreview?.title ?? tablePreview?.path ?? preview?.filename ?? "Preview"}</h3>
                 <div className="preview-actions">
                   {activeFile && (
                     <button onClick={saveWorkspaceFile} disabled={!editorDirty}>
@@ -764,7 +790,7 @@ export function App() {
                   {activeFile?.suffix === ".tex" && <button onClick={compileLatexPreview}>Compile PDF</button>}
                   {activeFile?.suffix === ".py" && <button onClick={runActivePython}>Run Python</button>}
                   {embeddedPreview && <button onClick={() => window.open(embeddedPreview.url, "_blank")}>Open</button>}
-                  {(activeFile || preview || embeddedPreview) && <button onClick={clearPreview}>Clear</button>}
+                  {(activeFile || preview || embeddedPreview || tablePreview) && <button onClick={clearPreview}>Clear</button>}
                 </div>
               </div>
               {activeFile?.suffix === ".tex" ? (
@@ -876,6 +902,34 @@ export function App() {
                   </div>
                   {compileLog && <pre className="compile-log">{compileLog}</pre>}
                 </>
+              ) : tablePreview ? (
+                <div className="table-preview">
+                  <div className="table-meta">
+                    <strong>{tablePreview.path}</strong>
+                    <span>{tablePreview.sheet ? `Sheet: ${tablePreview.sheet}` : "CSV"}</span>
+                  </div>
+                  <div className="table-scroll">
+                    <table>
+                      <thead>
+                        <tr>
+                          {tablePreview.columns.map((column, index) => (
+                            <th key={`${column}-${index}`}>{column || `Column ${index + 1}`}</th>
+                          ))}
+                        </tr>
+                      </thead>
+                      <tbody>
+                        {tablePreview.rows.map((row, rowIndex) => (
+                          <tr key={rowIndex}>
+                            {tablePreview.columns.map((_, columnIndex) => (
+                              <td key={columnIndex}>{row[columnIndex] ?? ""}</td>
+                            ))}
+                          </tr>
+                        ))}
+                      </tbody>
+                    </table>
+                  </div>
+                  {tablePreview.truncated && <p className="muted">Preview is truncated.</p>}
+                </div>
               ) : preview ? (
                 <pre>{preview.text}</pre>
               ) : (
@@ -994,8 +1048,12 @@ function latestFile(files: WorkspaceFile[]): WorkspaceFile | undefined {
 }
 
 function fileMeta(file: WorkspaceFile): string {
-  const mode = file.text_previewable ? "editable" : file.embeddable ? "preview" : "file";
+  const mode = isTableFile(file) ? "table" : file.text_previewable ? "editable" : file.embeddable ? "preview" : "file";
   return `${mode} / ${file.size.toLocaleString()} bytes`;
+}
+
+function isTableFile(file: WorkspaceFile): boolean {
+  return [".csv", ".xlsx", ".xlsm"].includes(file.suffix);
 }
 
 function formatRunResult(path: string, result: CodeRunResult): string {

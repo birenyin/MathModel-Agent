@@ -17,6 +17,7 @@ from .services.file_extractors import extract_text, sanitize_filename
 from .services.llm import LLMClient
 from .services.reviewer import review_workflow
 from .services.skills import list_skills
+from .services.table_preview import preview_table
 from .services.workflow_engine import engine
 from .services.workspace_files import is_embeddable, list_workspace_files, read_workspace_text, resolve_workspace_path, write_workspace_text
 from .services.workspace_ops import compile_latex, zip_workspace
@@ -214,6 +215,19 @@ async def raw_file(workflow_id: str, path: str = Query(...)):
     if not is_embeddable(file_path):
         raise HTTPException(status_code=400, detail="file cannot be embedded")
     return FileResponse(file_path, filename=file_path.name, content_disposition_type="inline")
+
+
+@app.get("/api/workflows/{workflow_id}/files/table")
+async def table_file(workflow_id: str, path: str = Query(...)) -> dict:
+    try:
+        workflow = db.get_workflow(workflow_id)
+        return preview_table(Path(workflow["workspace"]), path)
+    except KeyError:
+        raise HTTPException(status_code=404, detail="workflow not found")
+    except FileNotFoundError:
+        raise HTTPException(status_code=404, detail="file not found")
+    except ValueError as exc:
+        raise HTTPException(status_code=400, detail=str(exc))
 
 
 @app.put("/api/workflows/{workflow_id}/files/content")

@@ -36,6 +36,7 @@ flowchart LR
 - `app.services.llm`: OpenAI-compatible provider plus local fallback.
 - `app.services.agent_chat`: workflow-aware Agent prompt assembly and local fallback replies.
 - `app.services.reviewer`: contest-paper review prompt assembly and fallback reviewer checklist.
+- `app.services.table_preview`: safe CSV/XLSX table preview for workspace files.
 - `app.services.workflow_engine`: staged workflow runner.
 - `app.services.skills`: Markdown skill discovery, selection, and prompt injection.
 - `app.services.workspace_files`: safe workspace file browsing, categorization, and text editing.

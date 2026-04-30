@@ -45,6 +45,7 @@ Current implemented actions:
 - run Python files from the workspace and save run logs as artifacts
 - tune Python run timeout, insert a main scaffold, inspect generated figures/tables, and ask Agent to explain run output
 - generate reviewer reports using a dedicated reviewer model or local fallback checklist
+- preview CSV/XLSX/XLSM files as tables inside the workbench
 - test model-provider settings from the UI
 - chat with a right-side workflow-aware Agent dock
 - trigger suggested Agent actions such as running Python, compiling LaTeX, and opening PDFs

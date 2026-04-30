@@ -641,6 +641,48 @@ button.small {
   word-break: break-word;
 }
 
+.table-preview {
+  display: grid;
+  gap: 12px;
+}
+
+.table-meta {
+  display: flex;
+  justify-content: space-between;
+  gap: 12px;
+  color: #445049;
+  font-size: 13px;
+}
+
+.table-scroll {
+  max-height: 620px;
+  overflow: auto;
+  border: 1px solid #e1e6e1;
+  border-radius: 8px;
+}
+
+.table-scroll table {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: 12px;
+}
+
+.table-scroll th,
+.table-scroll td {
+  border-bottom: 1px solid #edf1ed;
+  border-right: 1px solid #edf1ed;
+  padding: 7px 8px;
+  text-align: left;
+  white-space: nowrap;
+}
+
+.table-scroll th {
+  position: sticky;
+  top: 0;
+  background: #f4f7f4;
+  z-index: 1;
+}
+
 .error {
   background: #fff0f0;
   border: 1px solid #e1b2b2;
