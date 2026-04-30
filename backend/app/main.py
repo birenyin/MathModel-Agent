@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 from pathlib import Path
+from time import strftime
 
 from fastapi import FastAPI, HTTPException, Query, UploadFile
 from fastapi.middleware.cors import CORSMiddleware
@@ -8,9 +9,11 @@ from fastapi.responses import FileResponse
 
 from . import db
 from .config import APP_NAME, APP_VERSION, WORKSPACES_DIR, ensure_runtime_dirs
-from .models import SettingsUpdate, StepApproval, WorkflowCreate, WorkspaceFileUpdate
+from .models import CodeRunRequest, SettingsUpdate, StepApproval, WorkflowCreate, WorkspaceFileUpdate
 from .services.artifacts import safe_workspace_name
+from .services.code_runner import render_run_log, run_python_file
 from .services.file_extractors import extract_text, sanitize_filename
+from .services.llm import LLMClient
 from .services.skills import list_skills
 from .services.workflow_engine import engine
 from .services.workspace_files import is_embeddable, list_workspace_files, read_workspace_text, resolve_workspace_path, write_workspace_text
@@ -59,6 +62,21 @@ async def api_list_skills() -> list[dict[str, str]]:
 @app.post("/api/settings")
 async def save_settings(payload: SettingsUpdate) -> dict[str, str]:
     return db.set_settings(payload.model_dump())
+
+
+@app.post("/api/settings/test")
+async def test_settings(payload: SettingsUpdate) -> dict[str, str | bool]:
+    settings = _merge_settings_for_test(payload)
+    configured = bool(settings.get("model_base_url") and settings.get("model_name") and settings.get("model_api_key"))
+    try:
+        text = await LLMClient(settings).complete(
+            "You are a connection test endpoint.",
+            "Reply with one short sentence confirming that the model connection works.",
+        )
+    except Exception as exc:
+        return {"ok": False, "mode": "provider", "message": str(exc)}
+    mode = "provider" if configured else "fallback"
+    return {"ok": True, "mode": mode, "message": text[:1200]}
 
 
 @app.get("/api/workflows")
@@ -183,6 +201,39 @@ async def save_file(workflow_id: str, payload: WorkspaceFileUpdate, path: str = 
     return {"status": "saved", "path": path}
 
 
+@app.post("/api/workflows/{workflow_id}/files/run")
+async def run_file(workflow_id: str, payload: CodeRunRequest, path: str = Query(...)) -> dict:
+    try:
+        workflow = db.get_workflow(workflow_id)
+        workspace = Path(workflow["workspace"])
+        result = await run_python_file(workspace, path, payload.timeout_seconds)
+    except KeyError:
+        raise HTTPException(status_code=404, detail="workflow not found")
+    except FileNotFoundError:
+        raise HTTPException(status_code=404, detail="file not found")
+    except ValueError as exc:
+        raise HTTPException(status_code=400, detail=str(exc))
+
+    run_dir = Path(workflow["workspace"]) / "runs"
+    run_dir.mkdir(parents=True, exist_ok=True)
+    log_path = run_dir / f"{Path(path).stem}-{strftime('%Y%m%d-%H%M%S')}.log"
+    log_path.write_text(render_run_log(path, result), encoding="utf-8", errors="replace")
+    artifact = db.add_artifact(workflow_id, "run", f"Run log: {path}", log_path, "log")
+    level = "info" if result.ok else "error"
+    db.add_event(workflow_id, f"Ran Python file {path}: exit {result.exit_code}", level)
+
+    return {
+        "ok": result.ok,
+        "exit_code": result.exit_code,
+        "timed_out": result.timed_out,
+        "elapsed_seconds": result.elapsed_seconds,
+        "stdout": result.stdout,
+        "stderr": result.stderr,
+        "log_path": str(log_path),
+        "artifact": artifact,
+    }
+
+
 @app.post("/api/workflows/{workflow_id}/uploads")
 async def upload_workflow_file(workflow_id: str, file: UploadFile) -> dict:
     try:
@@ -295,3 +346,13 @@ async def export_workflow(workflow_id: str) -> dict:
     artifact = db.add_artifact(workflow_id, "export", "Workspace export", archive, "zip")
     db.add_event(workflow_id, f"Workspace exported: {archive}")
     return artifact
+
+
+def _merge_settings_for_test(payload: SettingsUpdate) -> dict[str, str]:
+    settings = db.get_settings()
+    incoming = payload.model_dump()
+    for key, value in incoming.items():
+        if key.endswith("_api_key") and not value:
+            continue
+        settings[key] = value or ""
+    return settings

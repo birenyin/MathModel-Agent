@@ -44,6 +44,11 @@ button.primary {
   border-color: #1f6f5b;
 }
 
+.button-row {
+  display: flex;
+  gap: 8px;
+}
+
 .app {
   display: grid;
   grid-template-columns: 360px 1fr;
@@ -175,6 +180,27 @@ textarea {
   color: #627067;
   font-size: 12px;
   margin-top: 3px;
+}
+
+.status-note {
+  display: grid;
+  gap: 4px;
+  margin-top: 10px;
+  padding: 9px;
+  border: 1px solid #d8e2d8;
+  border-radius: 8px;
+  background: #f7fbf7;
+  font-size: 12px;
+}
+
+.status-note span {
+  color: #546159;
+  line-height: 1.45;
+}
+
+.error-note {
+  border-color: #e1b2b2;
+  background: #fff5f5;
 }
 
 .main {
@@ -424,6 +450,20 @@ button.small {
   max-height: 180px;
 }
 
+.code-workbench {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) minmax(360px, 0.8fr);
+  gap: 12px;
+}
+
+.code-editor {
+  min-height: 560px;
+}
+
+.run-pane {
+  min-height: 560px;
+}
+
 .error {
   background: #fff0f0;
   border: 1px solid #e1b2b2;
@@ -449,6 +489,10 @@ button.small {
   }
 
   .latex-workbench {
+    grid-template-columns: 1fr;
+  }
+
+  .code-workbench {
     grid-template-columns: 1fr;
   }
 }

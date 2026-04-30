@@ -2,7 +2,9 @@ import { ChangeEvent, useEffect, useMemo, useState } from "react";
 import {
   API_BASE,
   Artifact,
+  CodeRunResult,
   EventItem,
+  ModelTestResult,
   Settings,
   Skill,
   TextPreview,
@@ -58,6 +60,8 @@ export function App() {
   const [preview, setPreview] = useState<TextPreview | null>(null);
   const [embeddedPreview, setEmbeddedPreview] = useState<EmbeddedPreview | null>(null);
   const [compileLog, setCompileLog] = useState("");
+  const [runLog, setRunLog] = useState("");
+  const [modelTest, setModelTest] = useState<ModelTestResult | null>(null);
   const [activeFile, setActiveFile] = useState<WorkspaceFile | null>(null);
   const [editorText, setEditorText] = useState("");
   const [editorDirty, setEditorDirty] = useState(false);
@@ -140,6 +144,12 @@ export function App() {
     await loadSettings();
   }
 
+  async function testModelSettings() {
+    setError("");
+    const result = await apiPost<ModelTestResult>("/api/settings/test", settings);
+    setModelTest(result);
+  }
+
   async function startWorkflow() {
     if (!selected) return;
     await apiPost(`/api/workflows/${selected.id}/start`);
@@ -165,6 +175,7 @@ export function App() {
     const result = await apiPost<CompileResult>(`/api/workflows/${selected.id}/compile`);
     setActiveFile(null);
     setEditorDirty(false);
+    setRunLog("");
     setCompileLog(result.log);
     if (result.pdf_rel_path) {
       setEmbeddedPreview({
@@ -200,6 +211,7 @@ export function App() {
       setEditorDirty(false);
       setPreview(null);
       setCompileLog("");
+      setRunLog("");
       setEmbeddedPreview({
         title: artifact.title,
         url: `${API_BASE}/api/artifacts/${artifact.id}/file?t=${Date.now()}`
@@ -213,6 +225,7 @@ export function App() {
       setEditorDirty(false);
       setEmbeddedPreview(null);
       setCompileLog("");
+      setRunLog("");
       setPreview({ ...item, filename: artifact.title });
     } catch {
       window.open(`${API_BASE}/api/artifacts/${artifact.id}/file`, "_blank");
@@ -224,6 +237,7 @@ export function App() {
     setPreview(item);
     setEmbeddedPreview(null);
     setCompileLog("");
+    setRunLog("");
     setActiveFile(null);
     setEditorDirty(false);
   }
@@ -236,6 +250,7 @@ export function App() {
       setEditorText("");
       setPreview(null);
       setCompileLog("");
+      setRunLog("");
       setEmbeddedPreview({ title: file.path, path: file.path, url: workspaceRawUrl(selected.id, file.path) });
       return;
     }
@@ -246,6 +261,7 @@ export function App() {
       setEditorDirty(false);
       setEmbeddedPreview(file.embeddable ? { title: file.path, path: file.path, url: workspaceRawUrl(selected.id, file.path) } : null);
       setCompileLog("");
+      setRunLog("");
       return;
     }
 
@@ -257,6 +273,7 @@ export function App() {
     setEditorDirty(false);
     setPreview(null);
     setCompileLog("");
+    setRunLog("");
     setEmbeddedPreview(findCompanionPreview(file, selected.id, workspaceFiles));
   }
 
@@ -266,6 +283,19 @@ export function App() {
       content: editorText
     });
     setEditorDirty(false);
+    await refreshDetails(selected.id);
+  }
+
+  async function runActivePython() {
+    if (!selected || !activeFile) return;
+    if (editorDirty) {
+      await saveWorkspaceFile();
+    }
+    const result = await apiPost<CodeRunResult>(
+      `/api/workflows/${selected.id}/files/run?path=${encodeURIComponent(activeFile.path)}`,
+      { timeout_seconds: 120 }
+    );
+    setRunLog(formatRunResult(activeFile.path, result));
     await refreshDetails(selected.id);
   }
 
@@ -294,6 +324,7 @@ export function App() {
     setPreview(null);
     setEmbeddedPreview(null);
     setCompileLog("");
+    setRunLog("");
     setActiveFile(null);
     setEditorText("");
     setEditorDirty(false);
@@ -345,7 +376,16 @@ export function App() {
               onChange={(e) => setSettings({ ...settings, texlive_bin: e.target.value })}
             />
           </label>
-          <button onClick={saveSettings}>Save Settings</button>
+          <div className="button-row">
+            <button onClick={saveSettings}>Save Settings</button>
+            <button onClick={testModelSettings}>Test Model</button>
+          </div>
+          {modelTest && (
+            <div className={modelTest.ok ? "status-note" : "status-note error-note"}>
+              <strong>{modelTest.mode}</strong>
+              <span>{modelTest.message}</span>
+            </div>
+          )}
         </section>
 
         <section className="panel compact">
@@ -534,6 +574,7 @@ export function App() {
                     </button>
                   )}
                   {activeFile?.suffix === ".tex" && <button onClick={compileLatexPreview}>Compile PDF</button>}
+                  {activeFile?.suffix === ".py" && <button onClick={runActivePython}>Run Python</button>}
                   {embeddedPreview && <button onClick={() => window.open(embeddedPreview.url, "_blank")}>Open</button>}
                   {(activeFile || preview || embeddedPreview) && <button onClick={clearPreview}>Clear</button>}
                 </div>
@@ -560,6 +601,19 @@ export function App() {
                     )}
                   </div>
                   {compileLog && <pre className="compile-log">{compileLog}</pre>}
+                </div>
+              ) : activeFile?.suffix === ".py" ? (
+                <div className="code-workbench">
+                  <textarea
+                    className="editor code-editor"
+                    value={editorText}
+                    rows={20}
+                    onChange={(event) => {
+                      setEditorText(event.target.value);
+                      setEditorDirty(true);
+                    }}
+                  />
+                  <pre className="run-pane">{runLog || "Run this Python file to see stdout and stderr here."}</pre>
                 </div>
               ) : activeFile ? (
                 <textarea
@@ -607,4 +661,23 @@ function findCompanionPreview(file: WorkspaceFile, workflowId: string, files: Wo
   const match = companion ?? fallback;
   if (!match) return null;
   return { title: match.path, path: match.path, url: workspaceRawUrl(workflowId, match.path) };
+}
+
+function formatRunResult(path: string, result: CodeRunResult): string {
+  return [
+    `Run target: ${path}`,
+    `Status: ${result.ok ? "ok" : "failed"}`,
+    `Exit code: ${result.exit_code}`,
+    `Timed out: ${result.timed_out}`,
+    `Elapsed seconds: ${result.elapsed_seconds.toFixed(2)}`,
+    `Log artifact: ${result.log_path}`,
+    "",
+    "STDOUT",
+    "------",
+    result.stdout || "(empty)",
+    "",
+    "STDERR",
+    "------",
+    result.stderr || "(empty)"
+  ].join("\n");
 }

@@ -58,6 +58,8 @@ Supported presets:
 - Workspace text files can be browsed, edited, and saved in the app.
 - Workspace PDF files can be previewed in-app.
 - LaTeX files can be edited alongside a compiled PDF preview.
+- Workspace Python files can be run from the editor, with stdout/stderr captured.
+- Model-provider settings can be tested before starting long workflows.
 - A user can rerun a selected workflow step without recreating the workflow.
 - A workflow workspace can be exported as a zip archive.
 - Generated LaTeX can be compiled when a TeX runtime is configured.

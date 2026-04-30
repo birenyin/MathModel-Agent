@@ -116,3 +116,20 @@ export type WorkspaceFile = {
   text_previewable: boolean;
   embeddable: boolean;
 };
+
+export type CodeRunResult = {
+  ok: boolean;
+  exit_code: number | null;
+  timed_out: boolean;
+  elapsed_seconds: number;
+  stdout: string;
+  stderr: string;
+  log_path: string;
+  artifact: Artifact;
+};
+
+export type ModelTestResult = {
+  ok: boolean;
+  mode: string;
+  message: string;
+};

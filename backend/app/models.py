@@ -36,6 +36,10 @@ class WorkspaceFileUpdate(BaseModel):
     content: str = ""
 
 
+class CodeRunRequest(BaseModel):
+    timeout_seconds: int = Field(default=30, ge=1, le=300)
+
+
 class WorkflowResponse(BaseModel):
     id: str
     kind: str

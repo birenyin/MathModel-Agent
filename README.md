@@ -40,6 +40,8 @@ Current implemented actions:
 - browse and edit text files inside the workflow workspace
 - preview workspace PDF files inside the app
 - edit LaTeX files with an adjacent compiled PDF preview
+- run Python files from the workspace and save run logs as artifacts
+- test model-provider settings from the UI
 - rerun a selected workflow step and regenerate that step plus later steps
 - compile LaTeX when `xelatex` is available
 - export the workspace as a zip archive
